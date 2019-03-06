@@ -1,0 +1,45 @@
+version: '2'
+services:
+  worker_1:
+    hostname: worker_1
+    image: elementalnet/unoconv:latest
+    links:
+      - rabbitmq
+      - minio
+    depends_on:
+      - rabbitmq
+      - minio
+    command: celery-worker
+  worker_2:
+    hostname: worker_2
+    image: elementalnet/unoconv:latest
+    links:
+      - rabbitmq
+      - minio
+    depends_on:
+      - rabbitmq
+      - minio
+    command: celery-worker
+  worker_3:
+    hostname: worker_3
+    image: elementalnet/unoconv:latest
+    links:
+      - rabbitmq
+      - minio
+    depends_on:
+      - rabbitmq
+      - minio
+    command: celery-worker
+  rabbitmq:
+    hostname: rabbitmq
+    image: rabbitmq:latest
+    ports:
+     - '5672:5672'
+  minio:
+    image: minio/minio:latest
+    environment:
+      MINIO_ACCESS_KEY: minio
+      MINIO_SECRET_KEY: minio123
+    command: gateway nas /data
+    ports:
+     - '9000:9000'

@@ -1,0 +1,60 @@
+ID;PQuattro Pro
+B;X7;Y17
+F;DF0G9
+F;W1 1 13
+F;W6 6 20
+C;X1;Y1;K"SLK test file"
+C;Y3;K"Purpose:"
+C;X2;K"Provide example file for this type"
+C;X6;K"File created by"
+C;X7;K"http://www.online-convert.com/"
+C;X1;Y4;K"File type:"
+C;X2;K"SLK"
+C;X6;K"More example files:"
+C;X7;K"http://www.online-convert.com/file-type"
+C;X1;Y5;K"Version:"
+C;X2;K1
+C;X6;K"License:"
+C;X7;K"Attribution-ShareAlike 3.0 Unported"
+C;X1;Y6;K"Remark:"
+C;X7;K"http://creativecommons.org/licenses/by-sa/3.0/"
+C;X1;Y8;K"Example content:"
+C;X5;K"Feel free to use and share the file according to the license above."
+C;X1;Y10;K"Pocket Money"
+C;Y12;K"Month"
+C;X2;K"Cecilia"
+C;X3;K"Patty"
+C;X4;K"Robert"
+C;X5;K"Frank"
+C;X6;K"total"
+C;X1;Y13;K"January"
+C;X2;K5
+C;X3;K5
+C;X4;K7
+C;X5;K25
+C;X6;K42
+C;X1;Y14;K"February"
+C;X2;K15
+C;X3;K15
+C;X4;K10
+C;X5;K5
+C;X6;K45
+C;X1;Y15;K"March"
+C;X2;K7
+C;X3;K10
+C;X4;K
+C;X5;K15
+C;X6;K32
+C;X1;Y16;K"April"
+C;X2;K5
+C;X3;K5
+C;X4;K15
+C;X5;K23
+C;X6;K48
+C;X1;Y17;K"May"
+C;X2;K15
+C;X3;K5
+C;X4;K5
+C;X5;K18
+C;X6;K43
+E
