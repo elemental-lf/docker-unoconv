@@ -3,6 +3,12 @@ try:
 except ImportError:
     from distutils.core import setup
 
+with open('requirements.txt', 'r', encoding='utf-8') as f:
+    requirements = [line.rstrip() for line in f]
+
+with open('requirements_dev.txt', 'r', encoding='utf-8') as f:
+    requirements_dev = [line.rstrip() for line in f]
+
 setup(
     name='celery_unoconv',
     version='0.1.0',
@@ -14,14 +20,8 @@ setup(
     packages=['celery_unoconv'],
     zip_safe=False,
     python_requires='~=3.6',
-    install_requires=[
-        'boto3==1.9.106',
-        'celery==4.3.0rc2',
-    ],
+    install_requires=requirements,
     extras_require={
-        'dev': [
-            'parameterized>=0.7.0,<1',
-            'file-magic>=0.4.0,<1',
-        ],
+        'dev': requirements_dev,
     },
 )

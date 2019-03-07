@@ -3,17 +3,17 @@ import subprocess
 import unittest
 from tempfile import NamedTemporaryFile
 
+from fs import open_fs
 from celery import Celery, group
 import magic
+from fs.copy import copy_file
 from parameterized import parameterized
 
 app = Celery('test')
 app.config_from_object('celery_unoconv.celeryconfig')
 app.conf.update({'broker_url': 'amqp://guest:guest@localhost:5672'})
 
-supported_input_format = app.signature('celery_unoconv.tasks.supported_input_format')
-get_input_formats = app.signature('celery_unoconv.tasks.get_input_formats')
-get_input_format = app.signature('celery_unoconv.tasks.get_input_format')
+supported_import_format = app.signature('celery_unoconv.tasks.supported_import_format')
 generate_preview_jpg = app.signature('celery_unoconv.tasks.generate_preview_jpg')
 generate_preview_png = app.signature('celery_unoconv.tasks.generate_preview_png')
 generate_pdf = app.signature('celery_unoconv.tasks.generate_pdf')
@@ -23,14 +23,14 @@ example_files = [os.path.join(dp, f) for dp, dn, filenames in os.walk('example-f
 
 class TestFile(unittest.TestCase):
 
+    BUCKET_NAME = 'unoconv'
+
     # Using file (i.e. libmagic) didn't work out for some MIME types
     @classmethod
-    def mime_type(cls, data: str) -> str:
-        data_magic = magic.detect_from_content(data)
+    def mime_type(cls, file: str) -> str:
+        data_magic = magic.detect_from_filename(file)
         if data_magic.mime_type == 'application/octet-stream':
-            with NamedTemporaryFile(buffering=0) as f:
-                f.write(data)
-                result = subprocess.run(['xdg-mime', 'query', 'filetype', f.name], stdout=subprocess.PIPE)
+            result = subprocess.run(['xdg-mime', 'query', 'filetype', file], stdout=subprocess.PIPE)
             mime_type = result.stdout.decode('utf-8', errors='ignore').rstrip()
         else:
             mime_type = data_magic.mime_type
@@ -55,30 +55,44 @@ class TestFile(unittest.TestCase):
         else:
             raise RuntimeError('Unsupported output format {}.'.format(output_format))
 
+        input_fs_url_host = f's3://minio:minio123@{self.BUCKET_NAME}?dir_path=/input&endpoint_url=http://localhost:9000'
+        input_fs_url = f's3://minio:minio123@{self.BUCKET_NAME}?dir_path=/input&endpoint_url=http://minio:9000'
+        output_fs_url_host = f's3://minio:minio123@{self.BUCKET_NAME}?dir_path=/output&endpoint_url=http://localhost:9000'
+        output_fs_url = f's3://minio:minio123@{self.BUCKET_NAME}?dir_path=/output&endpoint_url=http://minio:9000'
         for input_file in example_files:
-            with open(input_file, 'rb') as f:
-                data = f.read()
-            data_mime_type = self.mime_type(data)
+            data_mime_type = self.mime_type(input_file)
             _, extension = os.path.splitext(input_file)
 
-            if not supported_input_format.delay(mime_type=data_mime_type, extension=extension).get():
+            if not supported_import_format.delay(mime_type=data_mime_type, extension=extension).get():
                 print('{}: Unsupported MIME type {}.'.format(input_file, data_mime_type))
                 continue
+            input_file_basename = os.path.basename(input_file)
+            input_files.append(input_file_basename)
 
-            input_files.append(input_file)
+            with open_fs('osfs://') as source_fs, open_fs(output_fs_url_host) as destination_fs:
+                copy_file(source_fs, input_file, destination_fs, input_file_basename)
+
+            output_file = f'{input_file_basename}.{output_format}'
             if output_format == 'pdf':
                 tasks.append(
-                    generator.clone(kwargs={
-                        'data': data,
-                        'mime_type': data_mime_type,
-                        'extension': extension,
-                        'timeout': 10,
-                    }))
+                    generator.clone(
+                        kwargs={
+                            'input_fs_url': input_fs_url,
+                            'input_file': input_file_basename,
+                            'output_fs_url': output_fs_url,
+                            'output_file': output_file,
+                            'mime_type': data_mime_type,
+                            'extension': extension,
+                            'timeout': 10,
+                        }))
             else:
                 tasks.append(
                     generator.clone(
                         kwargs={
-                            'data': data,
+                            'input_fs_url': input_fs_url,
+                            'input_file': input_file_basename,
+                            'output_fs_url': output_fs_url,
+                            'output_file': output_file,
                             'mime_type': data_mime_type,
                             'extension': extension,
                             'height': 800,
@@ -90,16 +104,19 @@ class TestFile(unittest.TestCase):
 
         failed_jobs = 0
         successful_jobs = 0
-        for input_file, result in zip(input_files, group_results.get(propagate=False)):
+        os.makedirs('output', exist_ok=True)
+        for input_file_basename, result in zip(input_files, group_results.get(propagate=False)):
             if isinstance(result, Exception):
-                print('{}: exception {}.'.format(input_file, str(result)))
+                print('{}: exception {}.'.format(input_file_basename, str(result)))
                 failed_jobs += 1
                 continue
 
-            result_mime_type = self.mime_type(result)
-            self.assertTrue(expected_mime_type, result_mime_type)
-            with open('./output_{}/{}.{}'.format(output_format, input_file.replace('/', '_'), output_format), 'wb') as f:
-                f.write(result)
+            output_file = f'{input_file_basename}.{output_format}'
+            with open_fs(output_fs_url_host) as source_fs, open_fs('osfs://output/') as destination_fs:
+                copy_file(source_fs, output_file, destination_fs, output_file)
+
+            output_mime_type = self.mime_type(f'output/{output_file}')
+            self.assertTrue(expected_mime_type, output_mime_type)
             successful_jobs += 1
 
         self.assertEqual(44, group_results.completed_count())

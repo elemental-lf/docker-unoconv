@@ -10,17 +10,16 @@ RUN find /root/rpmbuild -ls && rpmbuild -bb /root/rpmbuild/SPECS/unoconv.spec
 
 FROM fedora:29 AS run
 
-ARG CELERY_VERSION=4.3.0rc2
-ARG BOTO3_VERSION=1.9.91
-
 COPY --from=build /root/rpmbuild/RPMS/ /tmp/RPMS/
+ADD requirements.txt /tmp/requirements.txt
 
 RUN dnf update -q -y && \
     dnf install -q -y python3 python3-pip python3-setuptools dumb-init && \
     dnf install  -y $(rpm -q --suggests /tmp/RPMS/*/*) && \
     dnf install  -y /tmp/RPMS/*/* && \
     dnf clean -y all && \
-    pip3 install "celery==${CELERY_VERSION}" "boto3==${BOTO3_VERSION}"
+    pip3 install -r /tmp/requirements.txt && \
+    rm -f /tmp/requirements.txt
 
 # Add runtime user
 RUN groupadd -r -g 1000 runtime && \

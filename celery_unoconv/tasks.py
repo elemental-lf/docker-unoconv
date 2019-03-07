@@ -1,14 +1,10 @@
 import itertools
 import os
 import subprocess
-from contextlib import contextmanager
-from copy import deepcopy
 from io import BytesIO
 from typing import BinaryIO, ByteString, Dict, List, Optional, Tuple
 
-import boto3
-from botocore.client import Config as BotoCoreClientConfig
-from botocore.handlers import set_list_objects_encoding_type_url
+from fs import open_fs
 from celery import Celery
 
 app = Celery('celery_unoconv')
@@ -109,56 +105,37 @@ FORMATS = [
 UNOCONV_DEFAULT_TIMEOUT = 300
 
 
-def _determine_input_format(mime_type: str, extension: str) -> Optional[ImportFormat]:
+def _determine_import_format(mime_type: str, extension: str) -> Optional[ImportFormat]:
     # Search for a full match
     if mime_type is not None and extension is not None and extension not in ['.', '']:
-        for input_format in FORMATS:
-            if mime_type == input_format.mime_type and extension == input_format.extension:
-                return input_format
+        for import_format in FORMATS:
+            if mime_type == import_format.mime_type and extension == import_format.extension:
+                return import_format
     # Search only by extension
     if extension is not None and extension not in ['.', '']:
-        for input_format in FORMATS:
-            if extension == input_format.extension:
-                return input_format
+        for import_format in FORMATS:
+            if extension == import_format.extension:
+                return import_format
     # Search only by MIME type
     if mime_type is not None:
-        for input_format in FORMATS:
-            if mime_type == input_format.mime_type:
-                return input_format
+        for import_format in FORMATS:
+            if mime_type == import_format.mime_type:
+                return import_format
     return None
 
 
 @app.task
-def get_input_format(*, mime_type: str = None, extension: str = None) -> Optional[Tuple[str, str, str, str]]:
-    input_format = _determine_input_format(mime_type, extension)
-    if input_format is not None:
-        return input_format.id, input_format.mime_type, input_format.document_type, input_format.import_filter, input_format.extension
-    else:
-        return None
+def supported_import_format(*, mime_type: str = None, extension: str = None) -> bool:
+    import_format = _determine_import_format(mime_type, extension)
+    return import_format is not None
 
 
-@app.task
-def supported_input_format(*, mime_type: str = None, extension: str = None) -> bool:
-    input_format = _determine_input_format(mime_type, extension)
-    return input_format is not None
-
-
-@app.task
-def get_input_formats() -> List[Tuple[str, str, str, str]]:
-    input_formats = []
-    for input_format in FORMATS:
-        input_formats.append((input_format.id, input_format.mime_type, input_format.document_type,
-                              input_format.import_filter, input_format.extension))
-    return input_formats
-
-
-def _call_unoconv(args: List[str], inputf: BinaryIO, timeout: int) -> bytes:
+def _call_unoconv(args: List[str], data: ByteString, timeout: int) -> bytes:
     args.insert(0, 'unoconv')
     args.extend(['--stdin', '--stdout', '--timeout', str(timeout)])
 
     try:
-        result = subprocess.run(
-            args, input=inputf.read(), stdout=subprocess.PIPE, stderr=subprocess.PIPE, timeout=timeout)
+        result = subprocess.run(args, input=data, stdout=subprocess.PIPE, stderr=subprocess.PIPE, timeout=timeout)
     except subprocess.CalledProcessError as exception:
         raise RuntimeError(f'unoconv invocation failed with return code {result.returncode} and output: ' +
                            exception.stderr.decode('utf-8', errors='ignore').replace('\n', ', ')) from None
@@ -175,259 +152,108 @@ def _call_unoconv(args: List[str], inputf: BinaryIO, timeout: int) -> bytes:
                            result.stderr.decode('utf-8', errors='ignore').replace('\n', ', '))
 
 
-def _convert_to_image(inputf: BinaryIO, input_format: ImportFormat, output_format_name: str, height: int, width: int,
+def _convert_to_image(data: ByteString, import_format: ImportFormat, export_format_name: str, height: int, width: int,
                       timeout: int) -> bytes:
-    unoconv_args = ['--format', output_format_name]
-    if input_format.document_type is not None:
-        unoconv_args.extend(['--doctype', input_format.document_type])
-    if input_format.import_filter is not None:
-        unoconv_args.extend(['--import-filter-name', input_format.import_filter])
+    unoconv_args = ['--format', export_format_name]
+    if import_format.document_type is not None:
+        unoconv_args.extend(['--doctype', import_format.document_type])
+    if import_format.import_filter is not None:
+        unoconv_args.extend(['--import-filter-name', import_format.import_filter])
 
     if height:
         unoconv_args.extend(['-e', f'PixelHeight={height}'])
         unoconv_args.extend(['-e', f'PixelWidth={width}'])
 
-    return _call_unoconv(unoconv_args, inputf, timeout)
+    return _call_unoconv(unoconv_args, data, timeout)
 
 
-def _convert_to_pdf(inputf: BinaryIO, input_format: ImportFormat, timeout: int):
+def _convert_to_pdf(data: ByteString, import_format: ImportFormat, timeout: int):
     unoconv_args = ['--format', 'pdf']
-    if input_format.document_type is not None:
-        unoconv_args.extend(['--doctype', input_format.document_type])
-    if input_format.import_filter is not None:
-        unoconv_args.extend(['--import-filter-name', input_format.import_filter])
+    if import_format.document_type is not None:
+        unoconv_args.extend(['--doctype', import_format.document_type])
+    if import_format.import_filter is not None:
+        unoconv_args.extend(['--import-filter-name', import_format.import_filter])
 
-    return _call_unoconv(unoconv_args, inputf, timeout)
+    return _call_unoconv(unoconv_args, data, timeout)
 
 
-#
-# ByteString based tasks
-#
+def _read_data(fs_url: str, file: str, mime_type: str, extension: str) -> Tuple[ImportFormat, bytes]:
+    try:
+        with open_fs(fs_url) as fs:
+            # Unfortunately we can't pass the file like object directly to subprocess.run as it requires a real
+            # OS file descriptor underneath.
+            data = fs.readbytes(file)
+    except Exception as exception:
+        raise RuntimeError(f'Reading file failed with a {type(exception).__name__} exception: {str(exception)}.') from None
+
+    if extension is None:
+        _, determined_extension = os.path.splitext(file)
+    else:
+        determined_extension = extension
+
+    import_format = _determine_import_format(mime_type, determined_extension)
+    if import_format is None:
+        raise ValueError('Unsupported input document type.')
+
+    return import_format, data
+
+
+def _write_output_data(fs_url: str, file: str, data: ByteString) -> None:
+    try:
+        with open_fs(fs_url) as fs:
+            fs.writebytes(file, data)
+    except Exception as exception:
+        raise RuntimeError(f'Reading file failed with a {type(exception).__name__} exception: {str(exception)}.') from None
+
+
+def _check_preview_dimensions(height: int, width: int) -> None:
+    if height is None and width is not None or height is not None and width is None:
+        raise ValueError('Both height and width must be set.')
 
 
 @app.task
 def generate_preview_jpg(*,
-                         data: ByteString,
+                         input_fs_url: str,
+                         input_file: str,
+                         output_fs_url: str,
+                         output_file: str,
                          mime_type: str = None,
                          extension: str = None,
                          height: int = None,
                          width: int = None,
                          timeout: int = UNOCONV_DEFAULT_TIMEOUT):
-    input_format = _determine_input_format(mime_type, extension)
-    if input_format is None:
-        raise ValueError('Unsupported input document type.')
-
-    return _convert_to_image(BytesIO(data), input_format, 'jpg', height, width, timeout)
+    _check_preview_dimensions(height, width)
+    import_format, data = _read_data(input_fs_url, input_file, mime_type, extension)
+    output_data = _convert_to_image(data, import_format, 'jpg', height, width, timeout)
+    _write_output_data(output_fs_url, output_file, output_data)
 
 
 @app.task
 def generate_preview_png(*,
-                         data: ByteString,
+                         input_fs_url: str,
+                         input_file: str,
+                         output_fs_url: str,
+                         output_file: str,
                          mime_type: str = None,
                          extension: str = None,
                          height: int = None,
                          width: int = None,
                          timeout: int = UNOCONV_DEFAULT_TIMEOUT):
-    input_format = _determine_input_format(mime_type, extension)
-    if input_format is None:
-        raise ValueError('Unsupported input document type.')
-
-    return _convert_to_image(BytesIO(data), input_format, 'png', height, width, timeout)
+    _check_preview_dimensions(height, width)
+    import_format, data = _read_data(input_fs_url, input_file, mime_type, extension)
+    output_data = _convert_to_image(data, import_format, 'png', height, width, timeout)
+    _write_output_data(output_fs_url, output_file, output_data)
 
 
 @app.task
 def generate_pdf(*,
-                 data: ByteString,
+                 input_fs_url: str,
+                 input_file: str,
+                 output_fs_url: str,
+                 output_file: str,
                  mime_type: str = None,
                  extension: str = None,
                  timeout: int = UNOCONV_DEFAULT_TIMEOUT):
-    input_format = _determine_input_format(mime_type, extension)
-    if input_format is None:
-        raise ValueError('Unsupported input document type.')
-
-    return _convert_to_pdf(BytesIO(data), input_format, timeout)
-
-
-#
-# ByteString based tasks
-#
-
-
-@app.task
-def generate_preview_jpg(*,
-                         data: ByteString,
-                         mime_type: str = None,
-                         extension: str = None,
-                         height: int = None,
-                         width: int = None,
-                         timeout: int = UNOCONV_DEFAULT_TIMEOUT):
-    input_format = _determine_input_format(mime_type, extension)
-    if input_format is None:
-        raise ValueError('Unsupported input document type.')
-
-    return _convert_to_image(BytesIO(data), input_format, 'jpg', height, width, timeout)
-
-
-@app.task
-def generate_preview_png(*,
-                         data: ByteString,
-                         mime_type: str = None,
-                         extension: str = None,
-                         height: int = None,
-                         width: int = None,
-                         timeout: int = UNOCONV_DEFAULT_TIMEOUT):
-    input_format = _determine_input_format(mime_type, extension)
-    if input_format is None:
-        raise ValueError('Unsupported input document type.')
-
-    return _convert_to_image(BytesIO(data), input_format, 'png', height, width, timeout)
-
-
-@app.task
-def generate_pdf(*,
-                 data: ByteString,
-                 mime_type: str = None,
-                 extension: str = None,
-                 timeout: int = UNOCONV_DEFAULT_TIMEOUT):
-    input_format = _determine_input_format(mime_type, extension)
-    if input_format is None:
-        raise ValueError('Unsupported input document type.')
-
-    return _convert_to_pdf(BytesIO(data), input_format, timeout)
-
-
-#
-# S3 based tasks
-#
-
-
-def _create_s3_resource(resource_config: Dict, disable_encoding_type: bool):
-    my_resource_config = deepcopy(resource_config)
-    if 'config' in my_resource_config:
-        my_resource_config['config'] = BotoCoreClientConfig(**my_resource_config['config'])
-
-    session = boto3.session.Session()
-    if disable_encoding_type:
-        session.events.unregister('before-parameter-build.s3.ListObjects', set_list_objects_encoding_type_url)
-
-    return session.resource('s3', **my_resource_config)
-
-
-@contextmanager
-def _s3_object_stream(bucket: str, key: str, resource_config: Dict, disable_encoding_type: bool) -> BinaryIO:
-    try:
-        resource = _create_s3_resource(resource_config, disable_encoding_type)
-    except Exception as exception:
-        raise RuntimeError(f'S3 resource creation failed: {str(exception)}') from None
-
-    try:
-        stream = resource.Object(bucket, key).get()['Body']
-        yield stream
-    except Exception as exception:
-        raise RuntimeError(f'S3 GET operation failed: {str(exception)}') from None
-    finally:
-        stream.close()
-
-
-@app.task
-def generate_preview_jpg_from_s3_object(*,
-                                        bucket: str,
-                                        key: str,
-                                        mime_type: str = None,
-                                        extension: str = None,
-                                        height: int = None,
-                                        width: int = None,
-                                        resource_config: Dict,
-                                        disable_encoding_type: bool = False,
-                                        timeout: int = UNOCONV_DEFAULT_TIMEOUT):
-    input_format = _determine_input_format(mime_type, extension)
-    if input_format is None:
-        raise ValueError('Unsupported input document type.')
-
-    with _s3_object_stream(bucket, key, resource_config, disable_encoding_type) as inputf:
-        return _convert_to_image(inputf, input_format, 'jpg', height, width, timeout)
-
-
-@app.task
-def generate_preview_png_from_s3_object(*,
-                                        bucket: str,
-                                        key: str,
-                                        mime_type: str = None,
-                                        extension: str = None,
-                                        height: int = None,
-                                        width: int = None,
-                                        resource_config: Dict,
-                                        disable_encoding_type: bool = False,
-                                        timeout: int = UNOCONV_DEFAULT_TIMEOUT):
-    input_format = _determine_input_format(mime_type, extension)
-    if input_format is None:
-        raise ValueError('Unsupported input document type.')
-
-    with _s3_object_stream(bucket, key, resource_config, disable_encoding_type) as inputf:
-        return _convert_to_image(inputf, input_format, 'png', height, width, timeout)
-
-
-@app.task
-def generate_pdf_from_s3_object(*,
-                                bucket: str,
-                                key: str,
-                                mime_type: str = None,
-                                extension: str = None,
-                                resource_config: Dict,
-                                disable_encoding_type: bool = False,
-                                timeout: int = UNOCONV_DEFAULT_TIMEOUT):
-    input_format = _determine_input_format(mime_type, extension)
-    if input_format is None:
-        raise ValueError('Unsupported input document type.')
-
-    with _s3_object_stream(bucket, key, resource_config, disable_encoding_type) as inputf:
-        return _convert_to_pdf(inputf, input_format, timeout)
-
-
-#
-# File based tasks
-#
-
-
-@app.task
-def generate_preview_jpg_from_file(*,
-                                   file: str,
-                                   mime_type: str = None,
-                                   height: int = None,
-                                   width: int = None,
-                                   timeout: int = UNOCONV_DEFAULT_TIMEOUT):
-    _, extension = os.path.splitext(file)
-    input_format = _determine_input_format(mime_type, extension)
-    if input_format is None:
-        raise ValueError('Unsupported input document type.')
-
-    with open(file, 'rb') as inputf:
-        return _convert_to_image(inputf, input_format, 'jpg', height, width, timeout)
-
-
-@app.task
-def generate_preview_png_from_file(*,
-                                   file: str,
-                                   mime_type: str = None,
-                                   height: int = None,
-                                   width: int = None,
-                                   timeout: int = UNOCONV_DEFAULT_TIMEOUT):
-
-    _, extension = os.path.splitext(file)
-    input_format = _determine_input_format(mime_type, extension)
-    if input_format is None:
-        raise ValueError('Unsupported input document type.')
-
-    with open(file, 'rb') as inputf:
-        return _convert_to_image(inputf, input_format, 'png', height, width, timeout)
-
-
-@app.task
-def generate_pdf_from_file(*, file: str, mime_type: str = None, timeout: int = UNOCONV_DEFAULT_TIMEOUT):
-    _, extension = os.path.splitext(file)
-    input_format = _determine_input_format(mime_type, extension)
-    if input_format is None:
-        raise ValueError('Unsupported input document type.')
-
-    with open(file, 'rb') as inputf:
-        return _convert_to_pdf(inputf, input_format, timeout)
+    import_format, data = _read_data(input_fs_url, input_file, mime_type, extension)
+    output_data = _convert_to_pdf(data, import_format, timeout)
+    _write_output_data(output_fs_url, output_file, output_data)

@@ -1,0 +1,2 @@
+parameterized>=0.7.0,<1
+file-magic>=0.4.0,<1
