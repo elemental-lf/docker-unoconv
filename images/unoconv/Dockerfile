@@ -32,10 +32,10 @@ RUN groupadd -r -g 1000 runtime && \
 # LibreOffice needs a home directory
 ENV HOME /home/runtime
 
-ADD celery-worker/ /celery-worker/lib
+ADD celery_unoconv/ /celery-worker/lib/celery_unoconv/
 RUN mkdir /celery-worker/config && \
-    mv /celery-worker/lib/docker_unoconv/celeryconfig.py /celery-worker/config && \
-    ln -s ../../config/celeryconfig.py /celery-worker/lib/docker_unoconv/celeryconfig.py
+    mv /celery-worker/lib/celery_unoconv/celeryconfig.py /celery-worker/config && \
+    ln -s ../../config/celeryconfig.py /celery-worker/lib/celery_unoconv/celeryconfig.py
 ADD docker-entrypoint.sh /
 
 USER 1000

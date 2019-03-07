@@ -11,8 +11,8 @@ from botocore.client import Config as BotoCoreClientConfig
 from botocore.handlers import set_list_objects_encoding_type_url
 from celery import Celery
 
-app = Celery('docker_unoconv')
-app.config_from_object('docker_unoconv.celeryconfig')
+app = Celery('celery_unoconv')
+app.config_from_object('celery_unoconv.celeryconfig')
 
 
 class ImportFormat:

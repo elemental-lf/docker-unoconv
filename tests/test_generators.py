@@ -8,15 +8,15 @@ import magic
 from parameterized import parameterized
 
 app = Celery('test')
-app.config_from_object('docker_unoconv.celeryconfig')
+app.config_from_object('celery_unoconv.celeryconfig')
 app.conf.update({'broker_url': 'amqp://guest:guest@localhost:5672'})
 
-supported_input_format = app.signature('docker_unoconv.tasks.supported_input_format')
-get_input_formats = app.signature('docker_unoconv.tasks.get_input_formats')
-get_input_format = app.signature('docker_unoconv.tasks.get_input_format')
-generate_preview_jpg = app.signature('docker_unoconv.tasks.generate_preview_jpg')
-generate_preview_png = app.signature('docker_unoconv.tasks.generate_preview_png')
-generate_pdf = app.signature('docker_unoconv.tasks.generate_pdf')
+supported_input_format = app.signature('celery_unoconv.tasks.supported_input_format')
+get_input_formats = app.signature('celery_unoconv.tasks.get_input_formats')
+get_input_format = app.signature('celery_unoconv.tasks.get_input_format')
+generate_preview_jpg = app.signature('celery_unoconv.tasks.generate_preview_jpg')
+generate_preview_png = app.signature('celery_unoconv.tasks.generate_preview_png')
+generate_pdf = app.signature('celery_unoconv.tasks.generate_pdf')
 
 example_files = [os.path.join(dp, f) for dp, dn, filenames in os.walk('example-files') for f in filenames]
 
