@@ -16,7 +16,7 @@ setup(
     url='http://github.com/elemental-lf/docker-unoconv',
     author='Lars Fenneberg',
     author_email='lf@elemental.net',
-    license='GPL-3',
+    license='Apache-2.0',
     packages=['celery_unoconv'],
     zip_safe=False,
     python_requires='~=3.6',
