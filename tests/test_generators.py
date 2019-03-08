@@ -1,7 +1,6 @@
 import os
 import subprocess
 import unittest
-from tempfile import NamedTemporaryFile
 
 from fs import open_fs
 from celery import Celery, group
@@ -9,7 +8,7 @@ import magic
 from fs.copy import copy_file
 from parameterized import parameterized
 
-app = Celery('test')
+app = Celery('test_generators')
 app.config_from_object('celery_unoconv.celeryconfig')
 app.conf.update({'broker_url': 'amqp://guest:guest@localhost:5672'})
 
@@ -23,11 +22,34 @@ example_files = [os.path.join(dp, f) for dp, dn, filenames in os.walk('example-f
 
 class TestFile(unittest.TestCase):
 
-    BUCKET_NAME = 'unoconv'
+    BUCKET_NAME_INPUT = 'unoconv-input'
+    BUCKET_NAME_OUTPUT = 'unoconv-output'
+
+    INPUT_FS_URL_HOST = f's3://minio:minio123@{BUCKET_NAME_INPUT}?endpoint_url=http://localhost:9000'
+    INPUT_FS_URL = f's3://minio:minio123@{BUCKET_NAME_INPUT}?endpoint_url=http://minio:9000'
+    OUTPUT_FS_URL_HOST = f's3://minio:minio123@{BUCKET_NAME_OUTPUT}?endpoint_url=http://localhost:9000'
+    OUTPUT_FS_URL = f's3://minio:minio123@{BUCKET_NAME_OUTPUT}?endpoint_url=http://minio:9000'
+
+    @classmethod
+    def setUpClass(cls):
+        with open_fs('osfs://output/') as fs:
+            fs.glob("**").remove()
+
+    def setUp(self):
+        with open_fs(self.INPUT_FS_URL_HOST) as fs:
+            fs.glob("**").remove()
+        with open_fs(self.OUTPUT_FS_URL_HOST) as fs:
+            fs.glob("**").remove()
+
+    def tearDown(self):
+        with open_fs(self.INPUT_FS_URL_HOST) as fs:
+            fs.glob("**").remove()
+        with open_fs(self.OUTPUT_FS_URL_HOST) as fs:
+            fs.glob("**").remove()
 
     # Using file (i.e. libmagic) didn't work out for some MIME types
-    @classmethod
-    def mime_type(cls, file: str) -> str:
+    @staticmethod
+    def mime_type(file: str) -> str:
         data_magic = magic.detect_from_filename(file)
         if data_magic.mime_type == 'application/octet-stream':
             result = subprocess.run(['xdg-mime', 'query', 'filetype', file], stdout=subprocess.PIPE)
@@ -55,10 +77,6 @@ class TestFile(unittest.TestCase):
         else:
             raise RuntimeError('Unsupported output format {}.'.format(output_format))
 
-        input_fs_url_host = f's3://minio:minio123@{self.BUCKET_NAME}?dir_path=/input&endpoint_url=http://localhost:9000'
-        input_fs_url = f's3://minio:minio123@{self.BUCKET_NAME}?dir_path=/input&endpoint_url=http://minio:9000'
-        output_fs_url_host = f's3://minio:minio123@{self.BUCKET_NAME}?dir_path=/output&endpoint_url=http://localhost:9000'
-        output_fs_url = f's3://minio:minio123@{self.BUCKET_NAME}?dir_path=/output&endpoint_url=http://minio:9000'
         for input_file in example_files:
             data_mime_type = self.mime_type(input_file)
             _, extension = os.path.splitext(input_file)
@@ -69,7 +87,7 @@ class TestFile(unittest.TestCase):
             input_file_basename = os.path.basename(input_file)
             input_files.append(input_file_basename)
 
-            with open_fs('osfs://') as source_fs, open_fs(output_fs_url_host) as destination_fs:
+            with open_fs('osfs://') as source_fs, open_fs(self.INPUT_FS_URL_HOST) as destination_fs:
                 copy_file(source_fs, input_file, destination_fs, input_file_basename)
 
             output_file = f'{input_file_basename}.{output_format}'
@@ -77,9 +95,9 @@ class TestFile(unittest.TestCase):
                 tasks.append(
                     generator.clone(
                         kwargs={
-                            'input_fs_url': input_fs_url,
+                            'input_fs_url': self.INPUT_FS_URL,
                             'input_file': input_file_basename,
-                            'output_fs_url': output_fs_url,
+                            'output_fs_url': self.OUTPUT_FS_URL,
                             'output_file': output_file,
                             'mime_type': data_mime_type,
                             'extension': extension,
@@ -89,9 +107,9 @@ class TestFile(unittest.TestCase):
                 tasks.append(
                     generator.clone(
                         kwargs={
-                            'input_fs_url': input_fs_url,
+                            'input_fs_url': self.INPUT_FS_URL,
                             'input_file': input_file_basename,
-                            'output_fs_url': output_fs_url,
+                            'output_fs_url': self.OUTPUT_FS_URL,
                             'output_file': output_file,
                             'mime_type': data_mime_type,
                             'extension': extension,
@@ -104,6 +122,7 @@ class TestFile(unittest.TestCase):
 
         failed_jobs = 0
         successful_jobs = 0
+        expected_jobs = len(input_files)
         os.makedirs('output', exist_ok=True)
         for input_file_basename, result in zip(input_files, group_results.get(propagate=False)):
             if isinstance(result, Exception):
@@ -112,15 +131,15 @@ class TestFile(unittest.TestCase):
                 continue
 
             output_file = f'{input_file_basename}.{output_format}'
-            with open_fs(output_fs_url_host) as source_fs, open_fs('osfs://output/') as destination_fs:
+            with open_fs(self.OUTPUT_FS_URL_HOST) as source_fs, open_fs('osfs://output/') as destination_fs:
                 copy_file(source_fs, output_file, destination_fs, output_file)
 
             output_mime_type = self.mime_type(f'output/{output_file}')
             self.assertTrue(expected_mime_type, output_mime_type)
             successful_jobs += 1
 
-        self.assertEqual(44, group_results.completed_count())
-        self.assertEqual(44, successful_jobs)
+        self.assertEqual(expected_jobs, group_results.completed_count())
+        self.assertEqual(expected_jobs, successful_jobs)
         self.assertEqual(0, failed_jobs)
 
 
