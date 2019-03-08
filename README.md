@@ -2,20 +2,47 @@
 
 # docker-unoconv
 
-This repository contains a Docker image which enables you to generate previews and thumbnails for common office 
+This repository contains a Docker image which can be used to generate previews and thumbnails for common office 
 document formats.  It uses [LibreOffice](https://www.libreoffice.org/) via [unoconv](https://github.com/unoconv/unoconv)
-for rendering and exposes several [Celery](http://www.celeryproject.org/) tasks to access this functionality. It is 
-intended to be deployed with Kubernetes but can also be used with Docker.
+for rendering and exposes several [Celery](http://www.celeryproject.org/) tasks to access this functionality. Documents
+are read and previews and thumbnails are written via [PyFilesystem](https://www.pyfilesystem.org/), support for
+accessing S3 object stores via [`fs-s3`](https://fs-s3fs.readthedocs.io/) is included. This image is intended to be 
+deployed with Kubernetes but can also be used with Docker.
 
 ## Modes of operation
 
 When instantiating the image as a container the mode the container should be running in needs to be specified. There
 are two possible modes:
 
-* `celery-worker`: Celery is a distributed task queue framework for Python.In this mode a Celery worker is started 
-    which publishes two tasks with the following signatures:
+* `celery-worker`: In this mode a Celery worker is started which publishes four tasks with the following signatures:
     
-    TODO
+    * `celery_unoconv.tasks.supported_import_format(*, mime_type: str = None, extension: str = None) -> bool`
+    
+        Returns a boolean value indicating if a document format is supported. Either `mime_type` or `extension` or both
+        have to be set. The `extension` must include the leading dot.
+    
+    * `celery_unoconv.tasks.generate_preview_jpg(*, input_fs_url: str, input_file: str, output_fs_url: str,
+        output_file: str, mime_type: str = None, extension: str = None, height: int = None, width: int = None,
+        timeout: int = UNOCONV_DEFAULT_TIMEOUT)`
+        
+        This tasks renders the first page (or slide) of a document as a JPEG image. The document is read from 
+        `input_fs_url`:`input_file` and the JPEG image is written to `output_fs_url`:`output_file`. `mime_type`
+        and `extension` are interpreted just like as with `celery_unoconv.tasks.supported_import_format`. This
+        tasks throws a `ValueError` exception when the format is not supported. `height` and `width` specify
+        the dimensions of the resulting image and are optional (i.e. they either must be set or both be `None`).
+        `timeout` specifies a timeout for the invoked `unoconv` command.
+        
+    * `celery_unoconv.tasks.generate_preview_png(*, input_fs_url: str, input_file: str, output_fs_url: str,
+        output_file: str, mime_type: str = None, extension: str = None, height: int = None, width: int = None,
+        timeout: int = UNOCONV_DEFAULT_TIMEOUT)`
+        
+        This task works just like `celery_unoconv.tasks.generate_preview_jpg` but generates a PNG image instead.
+        
+    * `celery_unoconv.tasks.generate_pdf(*, input_fs_url: str, input_file: str, output_fs_url: str,
+        output_file: str, mime_type: str = None, extension: str = None, timeout: int = UNOCONV_DEFAULT_TIMEOUT)`
+        
+        Again this is similar to the last two task. But in this case a PDF document container *all* pages (or slides)
+        is generated.    
     
     To configure the Celery workers to connect to Celery backends the Celery configuration needs to be mounted as 
     `/celery-worker/config/celeryconfig.py` inside the container. It contains configuration variable assignments
