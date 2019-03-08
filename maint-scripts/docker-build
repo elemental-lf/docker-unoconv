@@ -65,8 +65,7 @@ else
     IMAGE_NAME="$DOCKER_REPO:$TAG"
 fi
 
-# Use BuildKit where available (Docker >= 18.09)
-export DOCKER_BUILDKIT=1
+export DOCKER_BUILDKIT=${DOCKER_BUILDKIT:-0}
 # BASE_TAG is only used by derived images
 docker build \
   --build-arg BASE_TAG="$BASE_TAG" \
