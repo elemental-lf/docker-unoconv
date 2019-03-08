@@ -37,15 +37,15 @@ jobs:
       install: skip
       script:
         - SKIP_DOCKER_PUSH=1 DOCKERFILE_PATH=images/unoconv/Dockerfile maint-scripts/docker-build
-    - stage: test
-      install:
-        - HELM_VERSION=2.13.0
-        - curl --retry 5 -sLO https://storage.googleapis.com/kubernetes-helm/helm-v$HELM_VERSION-linux-amd64.tar.gz
-        - tar --strip-components=1 -xzvvf helm-v$HELM_VERSION-linux-amd64.tar.gz linux-amd64/helm
-        - rm -f helm-v$HELM_VERSION-linux-amd64.tar.gz
-        - chmod a+x helm
-      script:
-        - ./helm lint charts/unoconv
+    #- stage: test
+    #  install:
+    #    - HELM_VERSION=2.13.0
+    #    - curl --retry 5 -sLO https://storage.googleapis.com/kubernetes-helm/helm-v$HELM_VERSION-linux-amd64.tar.gz
+    #    - tar --strip-components=1 -xzvvf helm-v$HELM_VERSION-linux-amd64.tar.gz linux-amd64/helm
+    #    - rm -f helm-v$HELM_VERSION-linux-amd64.tar.gz
+    #    - chmod a+x helm
+    #  script:
+    #    - ./helm lint charts/unoconv
     - stage: push
       env:
         - secure: 'UgcKYvzWHl+sguAc2y9+emE1ZIK1rz3PS7eI1ghjK4M/j/AfTIQxcgEW6Vkm4Rhq//MyNK6hGpDCtbSPzeoJsPBRr4gOGV4y+BX/JL3QCWQUx4UY6edPJcUhCPOUhdVobv6x6aVLm5LC9Yp5N3kuGVVtpkLOZTilDIvPXkjaig8m0ZetRL6zJJ/VPzWJAEMCYOBwmCoYucgUOXqpcBH0lrf9jyhCiohZWJK0joYcC07pf3PHdgD79by8XqYui/8+BPmcgG5QlZGW1qjCWisfOj30yovZ15UerOnzoV7rby44zxltWdLudGBTHM3Zhvb6k+p7vrk1l8+rIEbdsemqyTu5Qny/ilZcz8pV+y41L+WfxE6aBuElrf9GmwXJVpn581wUEuXuB3JtMsIhLl9/zIB/xuNjwHNzk1NpCzj7ro8wGVtTuBQGhCxs9aIiIzQ44Q9oq7PNmuCYyf7a1dvPfpKmRQsl6vsjWeLQbY6jgjs4S9PmYlznVnnsWeBxvFbgIiDQE5+IoIbWGP1s826yxvlCyz9si1qF2+QmXKMqyaFrExK3Q6FQH2l5cUR+BOC+iyR2aTBSRDz+4pE2ImEsN6zQNyzGSIfgu9ebwAaU4WT1qO/kPHzLq20ryfm8SyvEdaw9KxfrBRjbbbnRwbSd6PkJMtI+p/bFZjOnptv3l3M='
