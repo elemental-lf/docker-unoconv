@@ -14,7 +14,7 @@ COPY --from=build /root/rpmbuild/RPMS/ /tmp/RPMS/
 ADD requirements.txt /tmp/requirements.txt
 
 RUN dnf update -q -y && \
-    dnf install -q -y python3 python3-pip python3-setuptools dumb-init && \
+    dnf install -q -y python3 python3-pip python3-setuptools dumb-init hostname && \
     dnf install  -y $(rpm -q --suggests /tmp/RPMS/*/*) && \
     dnf install  -y /tmp/RPMS/*/* && \
     dnf clean -y all && \
@@ -36,6 +36,8 @@ RUN mkdir /celery-worker/config && \
     mv /celery-worker/lib/celery_unoconv/celeryconfig.py /celery-worker/config && \
     ln -s ../../config/celeryconfig.py /celery-worker/lib/celery_unoconv/celeryconfig.py
 ADD docker-entrypoint.sh /
+ADD healthcheck-*.sh /
+ADD tests/example-files/document/docx/example.docx /example.docx
 
 USER 1000
 
