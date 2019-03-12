@@ -1,0 +1,46 @@
+replicaCount: 5
+
+image:
+  repository: elementalnet/unoconv
+  tag: latest
+  pullPolicy: Always
+
+nameOverride: ""
+fullnameOverride: ""
+
+containers:
+  celeryWorker:
+    config:
+      broker_url = 'amqp://guest:guest@rabbitmq:5672'
+      result_backend = 'rpc://'
+      tasks_queues = 'unoconv'
+    dataVolume:
+      enabled: false
+      # Mount path inside the Celery worker container
+      mountPath: /data
+      reference:
+        persistentVolumeClaim:
+          claimName: your-pvc
+  unoconvListener:
+    enabled: true
+
+resources: {}
+  # limits:
+  #  cpu: 100m
+  #  memory: 128Mi
+  # requests:
+  #  cpu: 100m
+  #  memory: 128Mi
+
+horizontalPodAutoscaler:
+  # Remember to set resources above if you enable this
+  enabled: false
+  minReplicas: 1
+  maxReplicas: 10
+  targetCPUUtilizationPercentage: 50
+
+nodeSelector: {}
+
+tolerations: []
+
+affinity: {}

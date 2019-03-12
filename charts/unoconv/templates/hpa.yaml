@@ -1,0 +1,19 @@
+{{- if .Values.horizontalPodAutoscaler.enabled }}
+apiVersion: autoscaling/v1
+kind: HorizontalPodAutoscaler
+metadata:
+    name: {{ include "unoconv.fullname" . }}
+    labels:
+        app.kubernetes.io/name: {{ include "unoconv.name" . }}
+        helm.sh/chart: {{ include "unoconv.chart" . }}
+        app.kubernetes.io/instance: {{ .Release.Name }}
+        app.kubernetes.io/managed-by: {{ .Release.Service }}
+spec:
+    maxReplicas: {{ .Values.horizontalPodAutoscaler.maxReplicas }}
+    minReplicas: {{ .Values.horizontalPodAutoscaler.minReplicas }}
+    scaleTargetRef:
+        apiVersion: apps/v1
+        kind: Deployment
+        name: {{ include "unoconv.fullname" . }}
+    targetCPUUtilizationPercentage: {{ .Values.horizontalPodAutoscaler.targetCPUUtilizationPercentage }}
+{{- end}}

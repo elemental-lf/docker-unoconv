@@ -1,0 +1,101 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "unoconv.fullname" . }}
+  labels:
+    app.kubernetes.io/name: {{ include "unoconv.name" . }}
+    helm.sh/chart: {{ include "unoconv.chart" . }}
+    app.kubernetes.io/instance: {{ .Release.Name }}
+    app.kubernetes.io/managed-by: {{ .Release.Service }}
+spec:
+  replicas: {{ .Values.replicaCount }}
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: {{ include "unoconv.name" . }}
+      app.kubernetes.io/instance: {{ .Release.Name }}
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: {{ include "unoconv.name" . }}
+        app.kubernetes.io/instance: {{ .Release.Name }}
+    spec:
+      securityContext:
+        fsGroup: 1000
+      containers:
+        - name: celery-worker
+          image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          args:
+              - celery-worker
+          livenessProbe:
+            exec:
+              command:
+                - /healthcheck-celery-worker.sh
+            initialDelaySeconds: 60
+            timeoutSeconds: 10
+            periodSeconds: 30
+            failureThreshold: 3
+          env:
+            - name: POD_NAME
+              valueFrom:
+                  fieldRef:
+                      fieldPath: metadata.name
+            - name: POD_NAMESPACE
+              valueFrom:
+                  fieldRef:
+                      fieldPath: metadata.namespace
+          volumeMounts:
+            - mountPath: /celery-worker/config
+              name: celery-worker
+{{- if .Values.containers.celeryWorker.dataVolume.enabled }}
+            - mountPath: {{ .Values.containers.celeryWorker.dataVolume.mountPath }}
+              name: data-volume
+{{- end }}
+          resources:
+{{ toYaml .Values.resources | indent 12 }}
+{{- if .Values.containers.unoconvListener.enabled }}
+        - name: celery-worker
+          image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          args:
+            - unoconv-listener
+          livenessProbe:
+            exec:
+              command:
+                - /healthcheck-unoconv-listener.sh
+            initialDelaySeconds: 60
+            timeoutSeconds: 10
+            periodSeconds: 30
+            failureThreshold: 3
+          env:
+            - name: POD_NAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.name
+            - name: POD_NAMESPACE
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.namespace
+          resources:
+{{ toYaml .Values.resources | indent 12 }}
+{{- end }}
+      volumes:
+        - name: celery-worker
+          configMap:
+            name: {{ include "unoconv.fullname" . }}-celery-worker
+{{- if .Values.containers.celeryWorker.dataVolume.enabled }}
+        - name: data-volume
+                  {{ toYaml .Values.containers.celeryWorker.dataVolume.reference | indent 10 }}
+{{- end }}
+    {{- with .Values.nodeSelector }}
+      nodeSelector:
+{{ toYaml . | indent 8 }}
+    {{- end }}
+    {{- with .Values.affinity }}
+      affinity:
+{{ toYaml . | indent 8 }}
+    {{- end }}
+    {{- with .Values.tolerations }}
+      tolerations:
+{{ toYaml . | indent 8 }}
+    {{- end }}
