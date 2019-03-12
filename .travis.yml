@@ -45,7 +45,7 @@ jobs:
         - docker version
       install: skip
       script:
-        - SKIP_DOCKER_PUSH=1 DOCKERFILE_PATH=images/unoconv/Dockerfile maint-scripts/docker-build
+        - SKIP_DOCKER_PUSH=1 DOCKER_BUILDKIT=1 DOCKERFILE_PATH=images/unoconv/Dockerfile maint-scripts/docker-build
     - stage: test
       install:
         - HELM_VERSION=2.13.0
@@ -71,4 +71,4 @@ jobs:
       install: skip
       script:
         - docker login -u "$DOCKER_USERNAME" -p "$DOCKER_PASSWORD"
-        - DOCKERFILE_PATH=images/unoconv/Dockerfile maint-scripts/docker-build
+        - DOCKER_BUILDKIT=1 DOCKERFILE_PATH=images/unoconv/Dockerfile maint-scripts/docker-build
