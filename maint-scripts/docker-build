@@ -65,7 +65,11 @@ else
     IMAGE_NAME="$DOCKER_REPO:$TAG"
 fi
 
+DOCKER_BUILD_ARGS=''
 export DOCKER_BUILDKIT=${DOCKER_BUILDKIT:-0}
+if [[ $DOCKER_BUILDKIT == 1 ]]; then
+    DOCKER_BUILD_ARGS='--quiet'
+fi
 # BASE_TAG is only used by derived images
 docker build \
   --build-arg BASE_TAG="$BASE_TAG" \
@@ -74,7 +78,9 @@ docker build \
   --build-arg VCS_URL="$(git config --get remote.origin.url)" \
   --build-arg VERSION="$VERSION" \
   -f $DOCKERFILE_PATH \
-  -t $IMAGE_NAME .
+  -t $IMAGE_NAME \
+  $DOCKER_BUILD_ARGS \
+  .
 
 # Docker Cloud will push $IMAGE_NAME automatically after this script,
 # for the Travis CI case push here
