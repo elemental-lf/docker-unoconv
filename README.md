@@ -2,12 +2,13 @@
 
 # docker-unoconv
 
-This repository contains a Docker image which can be used to generate previews and thumbnails for common office 
-document formats.  It uses [LibreOffice](https://www.libreoffice.org/) via [unoconv](https://github.com/unoconv/unoconv)
-for rendering and exposes several [Celery](http://www.celeryproject.org/) tasks to access this functionality. Documents
-are read and previews and thumbnails are written via [PyFilesystem](https://www.pyfilesystem.org/), support for
-accessing S3 object stores via [`fs-s3`](https://fs-s3fs.readthedocs.io/) is included. This image is intended to be 
-deployed with Kubernetes but can also be used with Docker.
+This repository contains a Docker image which can be used to generate previews and thumbnails from files in common 
+office  document formats.  It uses [LibreOffice](https://www.libreoffice.org/) via 
+[unoconv](https://github.com/unoconv/unoconv) for rendering and exposes several [Celery](http://www.celeryproject.org/) 
+tasks to access this functionality. Documents are read and previews and thumbnails are written via
+[PyFilesystem](https://www.pyfilesystem.org/), support for accessing S3 object stores via 
+[`fs-s3`](https://fs-s3fs.readthedocs.io/) is included. This image is intended to be deployed with Kubernetes but can
+also be used with Docker.
 
 ## Modes of operation
 
@@ -44,17 +45,25 @@ are two possible modes:
         Again this is similar to the last two task. But in this case a PDF document container *all* pages (or slides)
         is generated.    
     
-    To configure the Celery workers to connect to Celery backends the Celery configuration needs to be mounted as 
+    To configure the Celery workers to connect to the Celery backends the Celery configuration needs to be mounted as 
     `/celery-worker/config/celeryconfig.py` inside the container. It contains configuration variable assignments
     as per the Celery [documentation](http://docs.celeryproject.org/en/latest/userguide/configuration.html). To
-    get the results of the scans a results backend is needed.
+    get the results of the tasks a result backend is needed.
     
     These tasks need to be called by name. It is possible to use `send_task` for this or to define a `signature` with
-    one of the names above.
+    one of the names above:
     
-* `listener`: This mode starts `unoconv` as server process inside the container. This container is optional, but as
-    the startup of LibreOffice is expensive it speeds things up and uses fewer resources. If this container is not
-    present, the `celery-worker` container starts up an `unoconv` server and LibreOffice instance by itself each 
+    ```python
+    app = Celery()
+    supported_import_format = app.signature('celery_unoconv.tasks.supported_import_format')
+    generate_preview_jpg = app.signature('celery_unoconv.tasks.generate_preview_jpg')
+    generate_preview_png = app.signature('celery_unoconv.tasks.generate_preview_png')
+    generate_pdf = app.signature('celery_unoconv.tasks.generate_pdf')
+    ``` 
+    
+* `unoconv-listener`: This mode starts `unoconv` as server process inside the container. This container is optional, but
+    as the startup of LibreOffice is expensive it speeds things up and uses fewer resources. If this container is 
+    not present, the `celery-worker` container starts up an `unoconv` server and LibreOffice instance by itself each 
     time a request comes in and terminates it again when done. 
         
 The mode needs to be supplied as single argument to the container's entry-point. This is done via the 
@@ -69,10 +78,26 @@ for building your own manifests.
 
 The Helm chart comes with a few configuration options:
 
-TODO
+The `unoconv` listener can be disabled by setting `containers.unoconvListener.enabled` to `false`. But normally it
+should always be enabled.
+
+```yaml
+containers:
+  unoconvListener:
+    enabled: true
+```
 
 The configuration for the Celery worker needs to be supplied under the key `containers.celeryWorker.config`. It is
 injected into the container via a `ConfigMap`.
+
+```yaml
+containers:
+  celeryWorker:
+    config:
+      broker_url = 'amqp://guest:guest@rabbitmq:5672'
+      result_backend = 'rpc://'
+      tasks_queues = 'unoconv'
+```
 
 By default the deployment consists of five pods. The Celery workers are just started with one worker process per pod, 
 so they need to be scaled by increasing the number of `replicas`. This can be done automatically be enabling the 
@@ -81,8 +106,8 @@ horizontal autoscaler below.
 ```yaml
 replicaCount: 5 
 ```
-With the standard settings the Helm chart will use the `latest` image. For production deployment it is recommened 
-to specify a release version instead of using `latest`. In that case the `pullPolicy` can be set to `IfNotPresent`.
+With the standard settings the Helm chart will use the `latest` image. For production deployment it is recommended 
+to specify a release version instead of using `latest`. In that case the `pullPolicy` should be set to `IfNotPresent`.
 
 ```yaml
 image:
@@ -91,18 +116,20 @@ image:
   pullPolicy: Always
 ```
 
-For accessing documents residing on a filesystem a data volume can be mounted into the Celery worker container:
+To access documents residing on a filesystem a data volume can be mounted into the Celery worker container:
 
 ```yaml
-dataVolume:
-  enabled: false
-  # Mount path inside the Celery worker container
-  mountPath: /data
-  reference:
-    persistentVolumeClaim:
-      claimName: your-pvc
+containers:
+  celeryWorker:
+    dataVolume:
+      enabled: false
+      # Mount path inside the Celery worker container
+      mountPath: /data
+      reference:
+        persistentVolumeClaim:
+          claimName: your-pvc
 ```
-It is possible to specify resources for the containers. Currently all containers get the same resource allocation. This
+It is also possible to specify resources. Currently both containers use the same resource allocation. This
 might turn out to be suboptimal and separate resource specifications might be needed in the future. A horizontal
 pod autoscaler can be enabled to adjust the number of `replicas` automatically.
 
