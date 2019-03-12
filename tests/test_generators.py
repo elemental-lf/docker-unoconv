@@ -32,6 +32,7 @@ class TestFile(unittest.TestCase):
 
     @classmethod
     def setUpClass(cls):
+        os.makedirs('output', exist_ok=True)
         with open_fs('osfs://output/') as fs:
             fs.glob("**").remove()
 
@@ -62,8 +63,6 @@ class TestFile(unittest.TestCase):
     def test_generator_functions(self, output_format: str):
         tasks = []
         input_files = []
-
-        os.makedirs('./output_{}'.format(output_format), exist_ok=True)
 
         if output_format == 'jpg':
             generator = generate_preview_jpg
@@ -123,7 +122,6 @@ class TestFile(unittest.TestCase):
         failed_jobs = 0
         successful_jobs = 0
         expected_jobs = len(input_files)
-        os.makedirs('output', exist_ok=True)
         for input_file_basename, result in zip(input_files, group_results.get(propagate=False)):
             if isinstance(result, Exception):
                 print('{}: exception {}.'.format(input_file_basename, str(result)))
