@@ -8,22 +8,23 @@ branches:
   only:
     - master
 
+python:
+  - 3.6
+
 stages:
   - test
   - push
 
-python:
-  - 3.6
-
 before_install:
-  - uname -a
-  - lsb_release -a
-  - python --version
+  - curl --retry 5 -fsSL https://download.docker.com/linux/ubuntu/gpg | sudo apt-key add -
+  - sudo add-apt-repository "deb [arch=amd64] https://download.docker.com/linux/ubuntu $(lsb_release -cs) stable"
+  - travis_retry sudo apt-get update
+  - travis_retry sudo apt-get -y -o Dpkg::Options::="--force-confnew" install docker-ce
   - docker version
 
 install:
   - travis_retry pip install --upgrade setuptools pip
-  - travis_retry pip install -r requirements.txt
+  - travis_retry pip install -r requirements.txt -r requirements_dev.txt
   - pip install .
 
 script:
@@ -33,20 +34,13 @@ script:
 
 jobs:
   include:
+    - python: 3.6
     - stage: test
-      before_install:
-        - uname -a
-        - lsb_release -a
-        - python --version
-        - curl -fsSL https://download.docker.com/linux/ubuntu/gpg | sudo apt-key add -
-        - sudo add-apt-repository "deb [arch=amd64] https://download.docker.com/linux/ubuntu $(lsb_release -cs) stable"
-        - sudo apt-get update
-        - sudo apt-get -y -o Dpkg::Options::="--force-confnew" install docker-ce
-        - docker version
       install: skip
       script:
         - SKIP_DOCKER_PUSH=1 DOCKER_BUILDKIT=1 DOCKERFILE_PATH=images/unoconv/Dockerfile maint-scripts/docker-build
     - stage: test
+      before_install: skip
       install:
         - HELM_VERSION=2.13.0
         - curl --retry 5 -sLO https://storage.googleapis.com/kubernetes-helm/helm-v$HELM_VERSION-linux-amd64.tar.gz
@@ -59,15 +53,6 @@ jobs:
       env:
         - secure: 'UgcKYvzWHl+sguAc2y9+emE1ZIK1rz3PS7eI1ghjK4M/j/AfTIQxcgEW6Vkm4Rhq//MyNK6hGpDCtbSPzeoJsPBRr4gOGV4y+BX/JL3QCWQUx4UY6edPJcUhCPOUhdVobv6x6aVLm5LC9Yp5N3kuGVVtpkLOZTilDIvPXkjaig8m0ZetRL6zJJ/VPzWJAEMCYOBwmCoYucgUOXqpcBH0lrf9jyhCiohZWJK0joYcC07pf3PHdgD79by8XqYui/8+BPmcgG5QlZGW1qjCWisfOj30yovZ15UerOnzoV7rby44zxltWdLudGBTHM3Zhvb6k+p7vrk1l8+rIEbdsemqyTu5Qny/ilZcz8pV+y41L+WfxE6aBuElrf9GmwXJVpn581wUEuXuB3JtMsIhLl9/zIB/xuNjwHNzk1NpCzj7ro8wGVtTuBQGhCxs9aIiIzQ44Q9oq7PNmuCYyf7a1dvPfpKmRQsl6vsjWeLQbY6jgjs4S9PmYlznVnnsWeBxvFbgIiDQE5+IoIbWGP1s826yxvlCyz9si1qF2+QmXKMqyaFrExK3Q6FQH2l5cUR+BOC+iyR2aTBSRDz+4pE2ImEsN6zQNyzGSIfgu9ebwAaU4WT1qO/kPHzLq20ryfm8SyvEdaw9KxfrBRjbbbnRwbSd6PkJMtI+p/bFZjOnptv3l3M='
         - secure: 'NbwZpG1yycWtbD3cz14ycrfIH7thKjd9ZmfRDZZJsKX7O81autbHLJ2NyqGm09MGisDagmTwarTz7uOhGTh6bldoCpx8kW0Oq8CZ3CbZrl2qxLcdDAUfpRSP6G5CLH3LTX7O8EgNaqpOIuoPi98viWdyyOsjEr5KEEpZ9Qo+8h6WSm1EC0flQaREbBxQQvhlE3xOmZdQhC1SrODF016oN/iSxVE4cPqO1KGWpKeap4uO+ygtrWoKjfsKXJgDiUpNbIcIYPYniiqkTRfa4AU6/iL97B7SpSqMym01L6ZBa/L2rtTofvMJee6+rhnsdiqJCTk+BnbyyApb1wtBvMoxjSsf6/oYoB6RKJUK+Bmlsi56dul0kmo+2l+mFnc1avWFa5wRR1bW52c4GqzSwTM0aP289jDSamGrrTkrfSD0ds1kKeYRbt4p7obcoKw1OJbOUv94gzDQ7LFOhz3sRcb2hnl8pcbLTm+/1NNuNkzKv2+BiTs8Ja4mwX2n1Hoy0Osirf9Hze3b3rUY11yuQcif9CiB8BkAwr2RSw89eXF/eedtm/ZU0whACIIIrrevYhti1N2YOPLQgUnRn0jFwqVOcviQkgA47GjkTV70eBPcIwfwMrSHTVk7oNSKmMEQeBI1rOh/SChDv5DHKOfu2Agljwcyr9UX3IL+LnxxpFFPgOE='
-      before_install:
-        - uname -a
-        - lsb_release -a
-        - python --version
-        - curl -fsSL https://download.docker.com/linux/ubuntu/gpg | sudo apt-key add -
-        - sudo add-apt-repository "deb [arch=amd64] https://download.docker.com/linux/ubuntu $(lsb_release -cs) stable"
-        - sudo apt-get update
-        - sudo apt-get -y -o Dpkg::Options::="--force-confnew" install docker-ce
-        - docker version
       install: skip
       script:
         - docker login -u "$DOCKER_USERNAME" -p "$DOCKER_PASSWORD"
