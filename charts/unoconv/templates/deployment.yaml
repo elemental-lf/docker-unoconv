@@ -54,7 +54,7 @@ spec:
           resources:
 {{ toYaml .Values.resources | indent 12 }}
 {{- if .Values.containers.unoconvListener.enabled }}
-        - name: celery-worker
+        - name: unoconv-listener
           image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
           imagePullPolicy: {{ .Values.image.pullPolicy }}
           args:
