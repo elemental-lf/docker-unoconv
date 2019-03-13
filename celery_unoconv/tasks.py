@@ -207,7 +207,7 @@ def _write_data(fs_url: str, file: str, data: ByteString) -> None:
         with open_fs(fs_url) as fs:
             fs.writebytes(file, data)
     except Exception as exception:
-        raise RuntimeError(f'Reading file failed with a {type(exception).__name__} exception: {str(exception)}.') from None
+        raise RuntimeError(f'Writing file failed with a {type(exception).__name__} exception: {str(exception)}.') from None
 
 
 def _check_preview_dimensions(height: int, width: int) -> None:
