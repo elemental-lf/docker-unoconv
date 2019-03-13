@@ -200,7 +200,7 @@ def _read_data(fs_url: str, file: str, mime_type: str, extension: str) -> Tuple[
     return import_format, data
 
 
-def _write_output_data(fs_url: str, file: str, data: ByteString) -> None:
+def _write_data(fs_url: str, file: str, data: ByteString) -> None:
     try:
         with open_fs(fs_url) as fs:
             fs.writebytes(file, data)
@@ -227,7 +227,7 @@ def generate_preview_jpg(*,
     _check_preview_dimensions(height, width)
     import_format, data = _read_data(input_fs_url, input_file, mime_type, extension)
     output_data = _convert_to_image(data, import_format, 'jpg', height, width, timeout)
-    _write_output_data(output_fs_url, output_file, output_data)
+    _write_data(output_fs_url, output_file, output_data)
 
 
 @app.task
@@ -244,7 +244,7 @@ def generate_preview_png(*,
     _check_preview_dimensions(height, width)
     import_format, data = _read_data(input_fs_url, input_file, mime_type, extension)
     output_data = _convert_to_image(data, import_format, 'png', height, width, timeout)
-    _write_output_data(output_fs_url, output_file, output_data)
+    _write_data(output_fs_url, output_file, output_data)
 
 
 @app.task
@@ -258,4 +258,4 @@ def generate_pdf(*,
                  timeout: int = UNOCONV_DEFAULT_TIMEOUT):
     import_format, data = _read_data(input_fs_url, input_file, mime_type, extension)
     output_data = _convert_to_pdf(data, import_format, timeout)
-    _write_output_data(output_fs_url, output_file, output_data)
+    _write_data(output_fs_url, output_file, output_data)
