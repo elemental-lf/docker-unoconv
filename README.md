@@ -28,10 +28,16 @@ are two possible modes:
         
         This tasks renders the first page (or slide) of a document as a JPEG image. The document is read from 
         `input_fs_url`:`input_file` and the JPEG image is written to `output_fs_url`:`output_file`. `mime_type`
-        and `extension` are interpreted just like as with `celery_unoconv.tasks.supported_import_format`. This
-        tasks throws a `ValueError` exception when the format is not supported. `height` and `width` specify
-        the dimensions of the resulting image and are optional (i.e. they either must be set or both be `None`).
-        `timeout` specifies a timeout for the invoked `unoconv` command.
+        and `extension` are interpreted just like as with `celery_unoconv.tasks.supported_import_format`. This `height` 
+        and `width` specify the dimensions of the resulting image and are optional (i.e. they either must be set or 
+        both be `None`). `timeout` specifies a timeout for the invoked `unoconv` command. If `extension` is `None` the 
+        task tries to guess it from the supplied `input_file` name.
+        
+        Exceptions thrown:
+        
+        * `ValueError`: Input format is unsupported or the supplied dimensions are invalid
+        * `FileNotFoundError`: Input file was not found
+        * `RuntimeError`: All other cases
         
     * `celery_unoconv.tasks.generate_preview_png(*, input_fs_url: str, input_file: str, output_fs_url: str,
         output_file: str, mime_type: str = None, extension: str = None, height: int = None, width: int = None,
