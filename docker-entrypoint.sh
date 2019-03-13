@@ -14,7 +14,7 @@ fi
 COMMAND="$1"
 case "$COMMAND" in
     unoconv-listener)
-        /usr/bin/dumb-init -- /usr/bin/unoconv --listener --server=127.0.0.1 --port=2002
+        /usr/bin/dumb-init -- /usr/bin/unoconv --listener --server=127.0.0.1 --port=2002 -v
     ;;
     celery-worker)
         export PYTHONPATH=/celery-worker/lib
