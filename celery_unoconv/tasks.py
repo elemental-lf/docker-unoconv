@@ -145,11 +145,13 @@ def _call_unoconv(args: List[str], data: ByteString, timeout: int) -> bytes:
     except Exception as exception:
         raise RuntimeError(f'unoconv invocation failed with a {type(exception).__name__} exception: {str(exception)}.') from None
 
+    decoded_stderr = result.stderr.decode('utf-8', errors='ignore').replace('\n', ', ')
     if result.returncode == 0:
+        if len(result.stdout) == 0:
+            raise RuntimeError(f'unoconv invocation was successful but did not return any data. Output on stderr was: ' + decoded_stderr)
         return result.stdout
     else:
-        raise RuntimeError(f'unoconv invocation failed with return code {result.returncode} and output: ' +
-                           result.stderr.decode('utf-8', errors='ignore').replace('\n', ', '))
+        raise RuntimeError(f'unoconv invocation failed with return code {result.returncode} and output: ' + decoded_stderr)
 
 
 def _convert_to_image(data: ByteString, import_format: ImportFormat, export_format_name: str, height: int, width: int,
