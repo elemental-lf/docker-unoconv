@@ -1,11 +1,11 @@
 import itertools
 import os
 import subprocess
-from io import BytesIO
-from typing import BinaryIO, ByteString, Dict, List, Optional, Tuple
+from typing import ByteString, List, Optional, Tuple
 
 from fs import open_fs
 from celery import Celery
+from fs.errors import ResourceNotFound
 
 app = Celery('celery_unoconv')
 app.config_from_object('celery_unoconv.celeryconfig')
@@ -185,6 +185,8 @@ def _read_data(fs_url: str, file: str, mime_type: str, extension: str) -> Tuple[
             # Unfortunately we can't pass the file like object directly to subprocess.run as it requires a real
             # OS file descriptor underneath.
             data = fs.readbytes(file)
+    except ResourceNotFound:
+        raise FileNotFoundError(f'Input file {file} not found.')
     except Exception as exception:
         raise RuntimeError(f'Reading file failed with a {type(exception).__name__} exception: {str(exception)}.') from None
 
