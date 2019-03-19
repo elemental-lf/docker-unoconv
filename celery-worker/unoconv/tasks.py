@@ -7,8 +7,8 @@ from fs import open_fs
 from celery import Celery
 from fs.errors import ResourceNotFound
 
-app = Celery('celery_unoconv')
-app.config_from_object('celery_unoconv.celeryconfig')
+app = Celery('unoconv')
+app.config_from_object('unoconv.celeryconfig')
 
 
 class ImportFormat:

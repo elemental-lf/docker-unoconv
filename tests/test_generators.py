@@ -9,13 +9,13 @@ from fs.copy import copy_file
 from parameterized import parameterized
 
 app = Celery('test_generators')
-app.config_from_object('celery_unoconv.celeryconfig')
+app.config_from_object('unoconv.celeryconfig')
 app.conf.update({'broker_url': 'amqp://guest:guest@localhost:5672'})
 
-supported_import_format = app.signature('celery_unoconv.tasks.supported_import_format')
-generate_preview_jpg = app.signature('celery_unoconv.tasks.generate_preview_jpg')
-generate_preview_png = app.signature('celery_unoconv.tasks.generate_preview_png')
-generate_pdf = app.signature('celery_unoconv.tasks.generate_pdf')
+supported_import_format = app.signature('unoconv.tasks.supported_import_format')
+generate_preview_jpg = app.signature('unoconv.tasks.generate_preview_jpg')
+generate_preview_png = app.signature('unoconv.tasks.generate_preview_png')
+generate_pdf = app.signature('unoconv.tasks.generate_pdf')
 
 example_files = [os.path.join(dp, f) for dp, dn, filenames in os.walk('example-files') for f in filenames]
 
