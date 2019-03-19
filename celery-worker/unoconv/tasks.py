@@ -1,6 +1,7 @@
 import itertools
 import os
 import subprocess
+from collections import namedtuple
 from typing import ByteString, List, Optional, Tuple
 
 from fs import open_fs
@@ -10,18 +11,7 @@ from fs.errors import ResourceNotFound
 app = Celery('unoconv')
 app.config_from_object('unoconv.celeryconfig')
 
-
-class ImportFormat:
-
-    id_counter = itertools.count(start=1)
-
-    def __init__(self, *, mime_type: str, document_type: str, import_filter: str, extension: str):
-        self.mime_type = mime_type
-        self.document_type = document_type
-        self.import_filter = import_filter
-        self.extension = extension
-        self.id = next(self.id_counter)
-
+ImportFormat = namedtuple('ImportFormat', ['mime_type', 'document_type', 'import_filter', 'extension'])
 
 # yapf: disable
 FORMATS = [
