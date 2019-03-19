@@ -144,27 +144,54 @@ def _call_unoconv(args: List[str], data: ByteString, timeout: int) -> bytes:
         raise RuntimeError(f'unoconv invocation failed with return code {result.returncode} and output: ' + decoded_stderr)
 
 
-def _convert_to_image(data: ByteString, import_format: ImportFormat, export_format_name: str, height: int, width: int,
-                      timeout: int) -> bytes:
+def _populate_args_for_image(import_format: ImportFormat, export_format_name: str, pixel_height: int, pixel_width: int,
+                             logical_height: int, logical_width: int) -> bytes:
     unoconv_args = ['--format', export_format_name]
     if import_format.document_type is not None:
         unoconv_args.extend(['--doctype', import_format.document_type])
     if import_format.import_filter is not None:
         unoconv_args.extend(['--import-filter-name', import_format.import_filter])
 
-    if height:
-        unoconv_args.extend(['-e', f'PixelHeight={height}'])
-        unoconv_args.extend(['-e', f'PixelWidth={width}'])
+    if pixel_height:
+        unoconv_args.extend(['-e', f'PixelHeight={pixel_height}'])
+        unoconv_args.extend(['-e', f'PixelWidth={pixel_width}'])
+
+    if logical_height:
+        unoconv_args.extend(['-e', f'LogicalHeight={logical_height}'])
+    if logical_width:
+        unoconv_args.extend(['-e', f'LogicalHeight={logical_width}'])
+
+    return unoconv_args
+
+
+def _convert_to_jpg(data: ByteString, import_format: ImportFormat, export_format_name: str, pixel_height: int,
+                    pixel_width: int, logical_height: int, logical_width: int, quality: int, timeout: int) -> bytes:
+
+    unoconv_args = _populate_args_for_image(import_format, export_format_name, pixel_height, pixel_width,
+                                            logical_height, logical_width)
+    unoconv_args.extend(['-e', f'Quality={quality}'])
 
     return _call_unoconv(unoconv_args, data, timeout)
 
 
-def _convert_to_pdf(data: ByteString, import_format: ImportFormat, timeout: int):
+def _convert_to_png(data: ByteString, import_format: ImportFormat, export_format_name: str, pixel_height: int,
+                    pixel_width: int, logical_height: int, logical_width: int, compression: int, timeout: int) -> bytes:
+
+    unoconv_args = _populate_args_for_image(import_format, export_format_name, pixel_height, pixel_width,
+                                            logical_height, logical_width)
+    unoconv_args.extend(['-e', f'Compression={compression}'])
+
+    return _call_unoconv(unoconv_args, data, timeout)
+
+
+def _convert_to_pdf(data: ByteString, import_format: ImportFormat, paper_format: str, timeout: int):
     unoconv_args = ['--format', 'pdf']
     if import_format.document_type is not None:
         unoconv_args.extend(['--doctype', import_format.document_type])
     if import_format.import_filter is not None:
         unoconv_args.extend(['--import-filter-name', import_format.import_filter])
+    if paper_format is not None:
+        unoconv_args.extend(['-P', f'PaperFormat={paper_format}'])
 
     return _call_unoconv(unoconv_args, data, timeout)
 
@@ -200,9 +227,18 @@ def _write_data(fs_url: str, file: str, data: ByteString) -> None:
         raise RuntimeError(f'Writing file failed with a {type(exception).__name__} exception: {str(exception)}.') from None
 
 
-def _check_preview_dimensions(height: int, width: int) -> None:
-    if height is None and width is not None or height is not None and width is None:
-        raise ValueError('Both height and width must be set.')
+def _check_dimensions(pixel_height: Optional[int], pixel_width: Optional[int], logical_height: Optional[int],
+                      logical_width: Optional[int]) -> None:
+    if pixel_height is None and pixel_width is not None or pixel_height is not None and pixel_width is None:
+        raise ValueError('Both pixel height and width must be set.')
+    if pixel_height is not None and pixel_height < 0:
+        raise ValueError('The pixel height must be a positive integer.')
+    if pixel_width is not None and pixel_width < 0:
+        raise ValueError('The pixel width must be a positive integer.')
+    if logical_height is not None and logical_height < 0:
+        raise ValueError('The logical height must be a positive integer.')
+    if logical_width is not None and logical_width < 0:
+        raise ValueError('The logical width must be a positive integer.')
 
 
 @app.task
@@ -213,12 +249,19 @@ def generate_preview_jpg(*,
                          output_file: str,
                          mime_type: str = None,
                          extension: str = None,
-                         height: int = None,
-                         width: int = None,
+                         pixel_height: int = None,
+                         pixel_width: int = None,
+                         logical_height: int = None,
+                         logical_width: int = None,
+                         quality: int = None,
                          timeout: int = UNOCONV_DEFAULT_TIMEOUT):
-    _check_preview_dimensions(height, width)
+    _check_dimensions(pixel_height, pixel_width, logical_height, logical_width)
+    if quality is not None and (quality < 1 or quality > 100):
+        raise ValueError('JPEG quality must be in the range of 1 to 100 (inclusive).')
+
     import_format, data = _read_data(input_fs_url, input_file, mime_type, extension)
-    output_data = _convert_to_image(data, import_format, 'jpg', height, width, timeout)
+    output_data = _convert_to_jpg(data, import_format, 'jpg', pixel_height, pixel_width, logical_height, logical_width,
+                                  quality, timeout)
     _write_data(output_fs_url, output_file, output_data)
 
 
@@ -230,12 +273,19 @@ def generate_preview_png(*,
                          output_file: str,
                          mime_type: str = None,
                          extension: str = None,
-                         height: int = None,
-                         width: int = None,
+                         pixel_height: int = None,
+                         pixel_width: int = None,
+                         logical_height: int = None,
+                         logical_width: int = None,
+                         compression: int = None,
                          timeout: int = UNOCONV_DEFAULT_TIMEOUT):
-    _check_preview_dimensions(height, width)
+    _check_dimensions(pixel_height, pixel_width, logical_height, logical_width)
+    if compression is not None and (compression < 1 or compression > 9):
+        raise ValueError('PNG compression must be in the range of 1 to 9 (inclusive).')
+
     import_format, data = _read_data(input_fs_url, input_file, mime_type, extension)
-    output_data = _convert_to_image(data, import_format, 'png', height, width, timeout)
+    output_data = _convert_to_png(data, import_format, 'png', pixel_height, pixel_width, logical_height, logical_width,
+                                  compression, timeout)
     _write_data(output_fs_url, output_file, output_data)
 
 
@@ -247,7 +297,8 @@ def generate_pdf(*,
                  output_file: str,
                  mime_type: str = None,
                  extension: str = None,
+                 paper_format: str = 'A4',
                  timeout: int = UNOCONV_DEFAULT_TIMEOUT):
     import_format, data = _read_data(input_fs_url, input_file, mime_type, extension)
-    output_data = _convert_to_pdf(data, import_format, timeout)
+    output_data = _convert_to_pdf(data, import_format, paper_format, timeout)
     _write_data(output_fs_url, output_file, output_data)

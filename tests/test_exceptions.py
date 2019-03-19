@@ -122,7 +122,7 @@ class TestFile(unittest.TestCase):
         else:
             raise RuntimeError('Unsupported output format {}.'.format(output_format))
 
-        for height, width in [(None, 800), (800, None)]:
+        for pixel_height, pixel_width in [(None, 800), (800, None), (-1, None), (None, -1)]:
             task = generator.clone(
                 kwargs={
                     'input_fs_url': 'osfs:///',
@@ -131,8 +131,58 @@ class TestFile(unittest.TestCase):
                     'output_file': f'output.{output_format}',
                     'mime_type': 'application/vnd.oasis.opendocument.text',
                     'extension': '.odt',
-                    'height': height,
-                    'width': width,
+                    'pixel_height': pixel_height,
+                    'pixel_width': pixel_width,
+                    'timeout': 10,
+                })
+            self.assertRaises(ValueError, lambda: task.apply_async().get())
+
+        for logical_height, logical_width in [(-1, None), (None, -1)]:
+            task = generator.clone(
+                kwargs={
+                    'input_fs_url': 'osfs:///',
+                    'input_file': '/dev/null',
+                    'output_fs_url': self.OUTPUT_FS_URL,
+                    'output_file': f'output.{output_format}',
+                    'mime_type': 'application/vnd.oasis.opendocument.text',
+                    'extension': '.odt',
+                    'logical_height': logical_height,
+                    'logical_width': logical_width,
+                    'timeout': 10,
+                })
+            self.assertRaises(ValueError, lambda: task.apply_async().get())
+
+    def test_quality_out_of_range(self):
+        for quality in [-1, 0, 101]:
+            task = generate_preview_jpg.clone(
+                kwargs={
+                    'input_fs_url': 'osfs:///',
+                    'input_file': '/dev/null',
+                    'output_fs_url': self.OUTPUT_FS_URL,
+                    'output_file': 'jpg',
+                    'mime_type': 'application/vnd.oasis.opendocument.text',
+                    'extension': '.odt',
+                    'pixel_height': 800,
+                    'pixel_width': 800,
+                    'quality': quality,
+                    'timeout': 10,
+                })
+
+            self.assertRaises(ValueError, lambda: task.apply_async().get())
+
+    def test_compression_out_of_range(self):
+        for compression in [-1, 0, 10]:
+            task = generate_preview_png.clone(
+                kwargs={
+                    'input_fs_url': 'osfs:///',
+                    'input_file': '/dev/null',
+                    'output_fs_url': self.OUTPUT_FS_URL,
+                    'output_file': 'png',
+                    'mime_type': 'application/vnd.oasis.opendocument.text',
+                    'extension': '.odt',
+                    'pixel_height': 800,
+                    'pixel_width': 800,
+                    'compression': compression,
                     'timeout': 10,
                 })
 

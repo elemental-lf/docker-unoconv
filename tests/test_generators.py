@@ -100,9 +100,10 @@ class TestFile(unittest.TestCase):
                             'output_file': output_file,
                             'mime_type': data_mime_type,
                             'extension': extension,
+                            'paper_format': 'LETTER',
                             'timeout': 10,
                         }))
-            else:
+            elif output_format == 'jpg':
                 tasks.append(
                     generator.clone(
                         kwargs={
@@ -112,10 +113,32 @@ class TestFile(unittest.TestCase):
                             'output_file': output_file,
                             'mime_type': data_mime_type,
                             'extension': extension,
-                            'height': 800,
-                            'width': 800,
+                            'pixel_height': 800,
+                            'pixel_width': 800,
+                            'logical_height': 800,
+                            'logical_width': 800,
+                            'quality': 25,
                             'timeout': 10,
                         }))
+            elif output_format == 'png':
+                tasks.append(
+                    generator.clone(
+                        kwargs={
+                            'input_fs_url': self.INPUT_FS_URL,
+                            'input_file': input_file_basename,
+                            'output_fs_url': self.OUTPUT_FS_URL,
+                            'output_file': output_file,
+                            'mime_type': data_mime_type,
+                            'extension': extension,
+                            'pixel_height': 800,
+                            'pixel_width': 800,
+                            'logical_height': 800,
+                            'logical_width': 800,
+                            'compression': 3,
+                            'timeout': 10,
+                        }))
+            else:
+                raise NotImplementedError
 
         group_results = group(tasks).apply_async()
 

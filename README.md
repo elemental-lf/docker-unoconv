@@ -17,21 +17,32 @@ are two possible modes:
 
 * `celery-worker`: In this mode a Celery worker is started which publishes four tasks with the following signatures:
     
-    * `celery_unoconv.tasks.supported_import_format(*, mime_type: str = None, extension: str = None) -> bool`
+    * `unoconv.tasks.supported_import_format(*, mime_type: str = None, extension: str = None) -> bool`
     
         Returns a boolean value indicating if a document format is supported. Either `mime_type` or `extension` or both
         have to be set. The `extension` must include the leading dot.
     
-    * `celery_unoconv.tasks.generate_preview_jpg(*, input_fs_url: str, input_file: str, output_fs_url: str,
-        output_file: str, mime_type: str = None, extension: str = None, height: int = None, width: int = None,
-        timeout: int = UNOCONV_DEFAULT_TIMEOUT)`
+    * `unoconv.tasks.generate_preview_jpg(*, input_fs_url: str, input_file: str, output_fs_url: str, output_file: str, 
+       mime_type: str = None, extension: str = None, pixel_height: int = None, pixel_width: int = None,
+       logical_height: int = None, logical_width: int = None, quality: int = None, timeout: int = UNOCONV_DEFAULT_TIMEOUT)`
         
-        This tasks renders the first page (or slide) of a document as a JPEG image. The document is read from 
-        `input_fs_url`:`input_file` and the JPEG image is written to `output_fs_url`:`output_file`. `mime_type`
-        and `extension` are interpreted just like as with `celery_unoconv.tasks.supported_import_format`. This `height` 
-        and `width` specify the dimensions of the resulting image and are optional (i.e. they either must be set or 
-        both be `None`). `timeout` specifies a timeout for the invoked `unoconv` command. If `extension` is `None` the 
-        task tries to guess it from the supplied `input_file` name.
+        This tasks renders the first page (or slide) of a document as a JPEG image.
+         
+        * The document is read from `input_fs_url`:`input_file` and the JPEG image is written to `output_fs_url`:`output_file`.
+         
+        * `mime_type` and `extension` are interpreted just like as with `unoconv.tasks.supported_import_format`. 
+          If `extension` is `None` the  task tries to guess it from the supplied `input_file` name.
+         
+        * `pixel_height` and `pixel_width` specify the dimensions of the resulting image and are optional (i.e. they either must be set or 
+          both be `None`).
+          
+        * `logical_height` and `logical_width` specify the dimensions on paper in hundredth of millimeters. Both are
+          optional and the respective height or width of the original document is retained.
+          
+        * `quality` determines the quality of the resulting JPEG image by tuning the compression algorithm. Valid
+          values are between 1 (lowest quality, smallest file size) and 100 (highest quality, largest file size).
+        
+        * `timeout` specifies a timeout for the invoked `unoconv` command. 
         
         Exceptions thrown:
         
@@ -39,17 +50,24 @@ are two possible modes:
         * `FileNotFoundError`: Input file was not found
         * `RuntimeError`: All other cases
         
-    * `celery_unoconv.tasks.generate_preview_png(*, input_fs_url: str, input_file: str, output_fs_url: str,
-        output_file: str, mime_type: str = None, extension: str = None, height: int = None, width: int = None,
-        timeout: int = UNOCONV_DEFAULT_TIMEOUT)`
+    * `unoconv.tasks.generate_preview_png(*, input_fs_url: str, input_file: str, output_fs_url: str, output_file: str,
+       mime_type: str = None, extension: str = None, pixel_height: int = None, pixel_width: int = None,
+       logical_height: int = None, logical_width: int = None, compression: int = None, timeout: int = UNOCONV_DEFAULT_TIMEOUT)`
         
-        This task works just like `celery_unoconv.tasks.generate_preview_jpg` but generates a PNG image instead.
+        This task works just like `unoconv.tasks.generate_preview_jpg` but generates a PNG image instead. It
+        uses the `compression` parameter instead of the `quality` parameter to tune the image compression algorithm:
         
-    * `celery_unoconv.tasks.generate_pdf(*, input_fs_url: str, input_file: str, output_fs_url: str,
-        output_file: str, mime_type: str = None, extension: str = None, timeout: int = UNOCONV_DEFAULT_TIMEOUT)`
+        * Valid values for `compression` are between 1 (lowest compression) and 9 (highest compress). 
         
-        Again this is similar to the last two task. But in this case a PDF document container *all* pages (or slides)
-        is generated.    
+    * `unoconv.tasks.generate_pdf(*, input_fs_url: str, input_file: str, output_fs_url: str,
+       output_file: str, mime_type: str = None, extension: str = None, paper_format: str = "A4", 
+       timeout: int = UNOCONV_DEFAULT_TIMEOUT)`
+        
+       Again this is similar to the last two task. But in this case a PDF document containing *all* pages (or slides)
+       is generated. Instead of image dimensions and compression ratios the `paper_format` can be specified:
+        
+        * Valid values for `paper_format` depend on the LibreOffice version. Some valid values are `A3`, `A4`, `A5`,
+          `B4`, `B5`, `LETTER`, and `LEGAL`. 
     
     To configure the Celery workers to connect to the Celery backends the Celery configuration needs to be mounted as 
     `/celery-worker/config/celeryconfig.py` inside the container. It contains configuration variable assignments
@@ -61,10 +79,10 @@ are two possible modes:
     
     ```python
     app = Celery()
-    supported_import_format = app.signature('celery_unoconv.tasks.supported_import_format')
-    generate_preview_jpg = app.signature('celery_unoconv.tasks.generate_preview_jpg')
-    generate_preview_png = app.signature('celery_unoconv.tasks.generate_preview_png')
-    generate_pdf = app.signature('celery_unoconv.tasks.generate_pdf')
+    supported_import_format = app.signature('unoconv.tasks.supported_import_format')
+    generate_preview_jpg = app.signature('unoconv.tasks.generate_preview_jpg')
+    generate_preview_png = app.signature('unoconv.tasks.generate_preview_png')
+    generate_pdf = app.signature('unoconv.tasks.generate_pdf')
     ``` 
     
 * `unoconv-listener`: This mode starts `unoconv` as server process inside the container. This container is optional, but
