@@ -215,10 +215,9 @@ version as the tag. All images are built automatically via Travis CI.
 ## Known Issues
 
 * During testing I've seen some crashes of `unoconv` which seem to be related to memory corruption. These are not
-  directly reproducible and seem to correlate with crashes of LibreOffice. Retrying the task might be a good idea.
-  As a second measure the listener could be disabled, so that each `unoconv` invocation gets a new LibreOffice
-  instance.
+  directly reproducible and seem to sometimes correlate with crashes of LibreOffice. Stability increased after
+  disabling the listener and so using a new LibreOffice instance for each new task.
   
 * Again during testing I've seen AMQP heartbeat failures when some tasks which take over over second to complete.
-  The workaround was to disable hearbeats with `broker_heartbeat = None`. I'm not sure if this is related to the
+  The workaround was to disable heartbeats with `broker_heartbeat = None`. I'm not sure if this is related to the
   test setup, the Celery configuration or a general problem.

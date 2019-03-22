@@ -22,7 +22,7 @@ containers:
         persistentVolumeClaim:
           claimName: your-pvc
   unoconvListener:
-    enabled: true
+    enabled: false
 
 resources: {}
   # limits:

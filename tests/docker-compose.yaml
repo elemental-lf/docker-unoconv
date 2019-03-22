@@ -30,30 +30,30 @@ services:
       - rabbitmq
       - minio
     command: celery-worker
-  listener_1:
-    image: elementalnet/unoconv:latest
-    depends_on:
-      - rabbitmq
-      - minio
-      - worker_1
-    command: unoconv-listener
-    network_mode: "service:worker_1"
-  listener_2:
-    image: elementalnet/unoconv:latest
-    depends_on:
-      - rabbitmq
-      - minio
-      - worker_2
-    command: unoconv-listener
-    network_mode: "service:worker_2"
-  listener_3:
-    image: elementalnet/unoconv:latest
-    depends_on:
-      - rabbitmq
-      - minio
-      - worker_3
-    command: unoconv-listener
-    network_mode: "service:worker_3"
+  #listener_1:
+  #  image: elementalnet/unoconv:latest
+  #  depends_on:
+  #    - rabbitmq
+  #    - minio
+  #    - worker_1
+  #  command: unoconv-listener
+  #  network_mode: "service:worker_1"
+  #listener_2:
+  #  image: elementalnet/unoconv:latest
+  #  depends_on:
+  #    - rabbitmq
+  #    - minio
+  #    - worker_2
+  #  command: unoconv-listener
+  #  network_mode: "service:worker_2"
+  #listener_3:
+  #  image: elementalnet/unoconv:latest
+  #  depends_on:
+  #    - rabbitmq
+  #    - minio
+  #    - worker_3
+  #  command: unoconv-listener
+  #  network_mode: "service:worker_3"
   rabbitmq:
     hostname: rabbitmq
     image: rabbitmq:latest
