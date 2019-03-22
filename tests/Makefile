@@ -1,5 +1,5 @@
 up:
-	docker-compose up -d
+	docker-compose up -d --remove-orphans
 	./create-buckets.sh
 
 down:
