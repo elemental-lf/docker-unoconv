@@ -296,8 +296,17 @@ def _write_data(*, fs_url: str, file: str, data: BinaryIO) -> None:
 
 def _build_dimensions(*, pixel_height: Optional[int], pixel_width: Optional[int], logical_height: Optional[int],
                       logical_width: Optional[int], scale_height: bool, scale_width: bool) -> _Dimensions:
-    if pixel_height is None and pixel_width is not None or pixel_height is not None and pixel_width is None:
-        raise ValueError('Both pixel height and width must be set.')
+    if scale_height and scale_width:
+        raise ValueError('Scaling in both dimensions is not supported.')
+
+    if scale_height and pixel_width is None:
+        raise ValueError('When scaling the height the pixel width must be specified.')
+    elif scale_width and pixel_height is None:
+        raise ValueError('When scaling the width the pixel height must be specified.')
+    elif not scale_height and not scale_width and (pixel_height is None and pixel_width is not None or
+                                                   pixel_height is not None and pixel_width is None):
+        raise ValueError('Both pixel height and width must be set or unset.')
+
     if pixel_height is not None and pixel_height < 0:
         raise ValueError('The pixel height must be a positive integer.')
     if pixel_width is not None and pixel_width < 0:
@@ -306,12 +315,6 @@ def _build_dimensions(*, pixel_height: Optional[int], pixel_width: Optional[int]
         raise ValueError('The logical height must be a positive integer.')
     if logical_width is not None and logical_width < 0:
         raise ValueError('The logical width must be a positive integer.')
-    if scale_height and scale_width:
-        raise ValueError('Scaling in both dimensions is not supported.')
-    if scale_height and pixel_width is None:
-        raise ValueError('When scaling the height the pixel width must be specified.')
-    if scale_width and pixel_height is None:
-        raise ValueError('When scaling the width the pixel height must be specified.')
 
     return _Dimensions(
         pixel_height=pixel_height,
