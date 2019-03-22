@@ -250,7 +250,8 @@ def _convert_to_png(*, data: BinaryIO, import_format: _ImportFormat, dimensions:
     return _call_unoconv(args=unoconv_args, data=data, timeout=timeout)
 
 
-def _convert_to_pdf(*, data: BinaryIO, import_format: _ImportFormat, paper_format: str, timeout: int) -> BytesIO:
+def _convert_to_pdf(*, data: BinaryIO, import_format: _ImportFormat, paper_format: str, paper_orientation: str,
+                    timeout: int) -> BytesIO:
     unoconv_args = ['--format', 'pdf']
     if import_format.document_type is not None:
         unoconv_args.extend(['--doctype', import_format.document_type])
@@ -258,6 +259,8 @@ def _convert_to_pdf(*, data: BinaryIO, import_format: _ImportFormat, paper_forma
         unoconv_args.extend(['--import-filter-name', import_format.import_filter])
     if paper_format is not None:
         unoconv_args.extend(['-P', f'PaperFormat={paper_format}'])
+    if paper_orientation is not None:
+        unoconv_args.extend(['-P', f'PaperOrientation={paper_orientation}'])
 
     return _call_unoconv(args=unoconv_args, data=data, timeout=timeout)
 
@@ -391,8 +394,14 @@ def generate_pdf(*,
                  output_file: str,
                  mime_type: str = None,
                  extension: str = None,
-                 paper_format: str = 'A4',
+                 paper_format: str = None,
+                 paper_orientation: str = None,
                  timeout: int = UNOCONV_DEFAULT_TIMEOUT):
     import_format, data = _read_data(fs_url=input_fs_url, file=input_file, mime_type=mime_type, extension=extension)
-    output_data = _convert_to_pdf(data=data, import_format=import_format, paper_format=paper_format, timeout=timeout)
+    output_data = _convert_to_pdf(
+        data=data,
+        import_format=import_format,
+        paper_format=paper_format,
+        paper_orientation=paper_orientation,
+        timeout=timeout)
     _write_data(fs_url=output_fs_url, file=output_file, data=output_data)
