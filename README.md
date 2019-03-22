@@ -24,7 +24,8 @@ are two possible modes:
     
     * `unoconv.tasks.generate_preview_jpg(*, input_fs_url: str, input_file: str, output_fs_url: str, output_file: str, 
        mime_type: str = None, extension: str = None, pixel_height: int = None, pixel_width: int = None,
-       logical_height: int = None, logical_width: int = None, quality: int = None, timeout: int = UNOCONV_DEFAULT_TIMEOUT)`
+       logical_height: int = None, logical_width: int = None, scale_height: bool = False, scale_width: bool = False,
+       quality: int = None, timeout: int = UNOCONV_DEFAULT_TIMEOUT)`
         
         This tasks renders the first page (or slide) of a document as a JPEG image.
          
@@ -33,11 +34,22 @@ are two possible modes:
         * `mime_type` and `extension` are interpreted just like as with `unoconv.tasks.supported_import_format`. 
           If `extension` is `None` the  task tries to guess it from the supplied `input_file` name.
          
-        * `pixel_height` and `pixel_width` specify the dimensions of the resulting image and are optional (i.e. they either must be set or 
-          both be `None`).
+        * `pixel_height` and `pixel_width` specify the dimensions of the resulting image and are optional (i.e. they 
+          either must be set or both be `None`). The behaviour is different when `scale_height` or `scale_width`
+          are `True`, see below.
           
         * `logical_height` and `logical_width` specify the dimensions on paper in hundredth of millimeters. Both are
-          optional and the respective height or width of the original document is retained.
+          optional and the respective height or width of the original document is retained. The behaviour is
+          different when `scale_height` or `scale_width` are `True`.
+          
+        * `scale_height` and `scale_width` activate automatic aspect ratio preserving scaling of the image. When
+          scaling the height `pixel_width` must be specified. When scaling the width `pixel_height` needs to be set.
+          The other respective dimension is automatically calculated based on this and the passed value for it 
+          (`pixel_width` or `pixel_height`) is ignored. When `logical_width` or `logical_height` are also set, they
+          are scaled appropriately. `scale_width` and `scale_height` cannot both be set at the same time.
+          
+          When one of the scaling options is active the image is rendered two times: once to determine the dimensions
+          of the original document and a second time with the calculated dimensions applied. 
           
         * `quality` determines the quality of the resulting JPEG image by tuning the compression algorithm. Valid
           values are between 1 (lowest quality, smallest file size) and 100 (highest quality, largest file size).
@@ -52,7 +64,8 @@ are two possible modes:
         
     * `unoconv.tasks.generate_preview_png(*, input_fs_url: str, input_file: str, output_fs_url: str, output_file: str,
        mime_type: str = None, extension: str = None, pixel_height: int = None, pixel_width: int = None,
-       logical_height: int = None, logical_width: int = None, compression: int = None, timeout: int = UNOCONV_DEFAULT_TIMEOUT)`
+       logical_height: int = None, logical_width: int = None, scale_height: bool = False, scale_width: bool = False,
+       compression: int = None, timeout: int = UNOCONV_DEFAULT_TIMEOUT)`
         
         This task works just like `unoconv.tasks.generate_preview_jpg` but generates a PNG image instead. It
         uses the `compression` parameter instead of the `quality` parameter to tune the image compression algorithm:
@@ -60,14 +73,19 @@ are two possible modes:
         * Valid values for `compression` are between 1 (lowest compression) and 9 (highest compress). 
         
     * `unoconv.tasks.generate_pdf(*, input_fs_url: str, input_file: str, output_fs_url: str,
-       output_file: str, mime_type: str = None, extension: str = None, paper_format: str = "A4", 
-       timeout: int = UNOCONV_DEFAULT_TIMEOUT)`
+       output_file: str, mime_type: str = None, extension: str = None, paper_format: str = None,
+       paper_orientation: str = None, timeout: int = UNOCONV_DEFAULT_TIMEOUT)`
         
        Again this is similar to the last two task. But in this case a PDF document containing *all* pages (or slides)
-       is generated. Instead of image dimensions and compression ratios the `paper_format` can be specified:
+       is generated. Instead of image dimensions and compression ratios the `paper_format` and `paper_orientation`
+       can be specified:
         
         * Valid values for `paper_format` depend on the LibreOffice version. Some valid values are `A3`, `A4`, `A5`,
           `B4`, `B5`, `LETTER`, and `LEGAL`. 
+        * Valid values for `paper_orientation` are `PORTRAIT` and `LANDSCAPE`.
+        
+       If `paper_format` is specified without a `paper_orientation` LibreOffice assumes an orientation of `PORTRAIT`. So
+       even when only specifying `paper_format` both settings in the original document are overridden.    
     
     To configure the Celery workers to connect to the Celery backends the Celery configuration needs to be mounted as 
     `/celery-worker/config/celeryconfig.py` inside the container. It contains configuration variable assignments
@@ -193,3 +211,14 @@ Please see `tests/docker-compose.yaml` for an example on how to use this image w
 A pre-built Docker image is present on Docker Hub under https://hub.docker.com/r/elementalnet/unoconv. The current
 master branch is available under the tags `latest` and `master`. Releases are available with their respective
 version as the tag. All images are built automatically via Travis CI.
+
+## Known Issues
+
+* During testing I've seen some crashes of `unoconv` which seem to be related to memory corruption. These are not
+  directly reproducible and seem to correlate with crashes of LibreOffice. Retrying the task might be a good idea.
+  As a second measure the listener could be disabled, so that each `unoconv` invocation gets a new LibreOffice
+  instance.
+  
+* Again during testing I've seen AMQP heartbeat failures when some tasks which take over over second to complete.
+  The workaround was to disable hearbeats with `broker_heartbeat = None`. I'm not sure if this is related to the
+  test setup, the Celery configuration or a general problem.
