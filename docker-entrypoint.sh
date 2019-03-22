@@ -18,8 +18,8 @@ case "$COMMAND" in
     ;;
     celery-worker)
         export PYTHONPATH=/celery-worker/lib
-        exec /usr/bin/dumb-init -- /usr/local/bin/celery worker --loglevel=INFO --task-events \
-                        --concurrency=1 -n "${POD_NAME:-%h}" -A unoconv
+        exec /usr/bin/dumb-init -- /usr/local/bin/celery worker --loglevel=INFO \
+                    --concurrency=1 -n "${POD_NAME:-%h}" -A unoconv
     ;;
     *)
         echo 'Unknown command. Valid commands are "unoconv-listener" and "celery-worker".' 1>&2
