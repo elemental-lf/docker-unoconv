@@ -93,6 +93,8 @@ FORMATS = [
     _ImportFormat(mime_type='image/bmp', document_type='graphics', import_filter='bmp', extension='.bmp'),
     _ImportFormat(mime_type='image/x-ms-bmp', document_type='graphics', import_filter='bmp', extension='.bmp'),
     _ImportFormat(mime_type='image/x-eps', document_type='graphics', import_filter='eps', extension='.eps'),
+    _ImportFormat(mime_type='application/rtf', document_type='document', import_filter='rtf', extension='.rtf'),
+    _ImportFormat(mime_type='text/rtf', document_type='document', import_filter='rtf', extension='.rtf'),
 ]
 # yapf: enable
 
