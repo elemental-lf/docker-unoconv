@@ -42,13 +42,20 @@ are two possible modes:
           optional and the respective height or width of the original document is retained. The behaviour is
           different when `scale_height` or `scale_width` are `True`.
           
-        * `scale_height` and `scale_width` activate automatic aspect ratio preserving scaling of the image. When
-          scaling the height `pixel_width` must be specified. When scaling the width `pixel_height` needs to be set.
-          The other respective dimension is automatically calculated based on this and the passed value for it 
-          (`pixel_width` or `pixel_height`) is ignored. When `logical_width` or `logical_height` are also set, they
-          are scaled appropriately. `scale_width` and `scale_height` cannot both be set at the same time.
+        * `scale_height` and `scale_width` activate automatic aspect ratio preserving scaling of the image. 
+        
+          * If scaling the height `pixel_width` must be specified.The height is then calculated automatically based 
+          on this and the passed value for it `pixel_height` is ignored.
           
-          When one of the scaling options is active the image is rendered two times: once to determine the dimensions
+          * If scaling the width `pixel_height` needs to be set. The width is then calculated automatically based 
+          on this and the passed value for it `pixel_width` is ignored.
+          
+          * If both `scale_width` and `scale_height` are set the image is scaled in such a way that it fits into 
+          the bonding box given by `pixel_height` and `pixel_width` while preserving the aspect ratio. 
+          
+          * If `logical_width` or `logical_height` are also set, they are scaled appropriately. 
+          
+          * If one of the scaling options is active the image is rendered two times: once to determine the dimensions
           of the original document and a second time with the calculated dimensions applied. 
           
         * `quality` determines the quality of the resulting JPEG image by tuning the compression algorithm. Valid

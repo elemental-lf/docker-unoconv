@@ -73,15 +73,17 @@ class TestFile(unittest.TestCase):
         return mime_type
 
     @parameterized.expand([
-        ('jpg', False, False),
-        ('png', False, False),
-        ('pdf', False, False),
-        ('jpg', True, False),
-        ('png', True, False),
-        ('jpg', False, True),
-        ('png', False, True),
+        ('jpg no scaling', 'jpg', False, False),
+        ('png no scaling', 'png', False, False),
+        ('pdf', 'pdf', False, False),
+        ('jpg scale height', 'jpg', True, False),
+        ('png scale height', 'png', True, False),
+        ('jpg scale width', 'jpg', False, True),
+        ('png scale width', 'png', False, True),
+        ('jpg scale both', 'jpg', True, True),
+        ('png scale both', 'png', True, True),
     ])
-    def test_generator_functions(self, output_format: str, scale_height: bool, scale_width: bool):
+    def test_generator_functions(self, _, output_format: str, scale_height: bool, scale_width: bool):
         tasks = []
         input_files = []
 
@@ -110,26 +112,15 @@ class TestFile(unittest.TestCase):
             with open_fs('osfs://') as source_fs, open_fs(self.INPUT_FS_URL_HOST) as destination_fs:
                 copy_file(source_fs, input_file, destination_fs, input_file_basename)
 
-            if scale_height:
-                pixel_height = None
-                pixel_width = self.PIXEL_WIDTH
-                logical_height = None
-                logical_width = self.LOGICAL_WIDTH
-            elif scale_width:
-                pixel_height = self.PIXE_HEIGHT
-                pixel_width = None
-                logical_height = self.LOGICAL_HEIGHT
-                logical_width = None
-            else:
-                pixel_height = self.PIXE_HEIGHT
-                pixel_width = self.PIXEL_WIDTH
-                logical_height = self.LOGICAL_HEIGHT
-                logical_width = self.LOGICAL_WIDTH
+            pixel_height = self.PIXE_HEIGHT
+            pixel_width = self.PIXEL_WIDTH
+            logical_height = self.LOGICAL_HEIGHT
+            logical_width = self.LOGICAL_WIDTH
 
             output_file = '{input_file_basename}-{height}x{width}.{output_format}'.format(
                 input_file_basename=input_file_basename,
-                height=pixel_height if pixel_height else 'auto',
-                width=pixel_width if pixel_width else 'auto',
+                height=pixel_height if not scale_height else 'auto',
+                width=pixel_width if not scale_width else 'auto',
                 output_format=output_format)
             if output_format == 'pdf':
                 tasks.append(
@@ -198,8 +189,8 @@ class TestFile(unittest.TestCase):
 
             output_file = '{input_file_basename}-{height}x{width}.{output_format}'.format(
                 input_file_basename=input_file_basename,
-                height=pixel_height if pixel_height else 'auto',
-                width=pixel_width if pixel_width else 'auto',
+                height=pixel_height if not scale_height else 'auto',
+                width=pixel_width if not scale_width else 'auto',
                 output_format=output_format)
             with open_fs(self.OUTPUT_FS_URL_HOST) as source_fs, open_fs('osfs://output/') as destination_fs:
                 copy_file(source_fs, output_file, destination_fs, output_file)
@@ -213,10 +204,12 @@ class TestFile(unittest.TestCase):
 
                 image = Image.open(output_data)
 
-                if scale_height:
+                if scale_height and not scale_width:
                     self.assertEqual(self.PIXEL_WIDTH, image.width)
-                elif scale_width:
+                elif not scale_height and scale_width:
                     self.assertEqual(self.PIXE_HEIGHT, image.height)
+                elif scale_height and scale_width:
+                    self.assertTrue(image.height == self.PIXE_HEIGHT or image.width == self.PIXEL_WIDTH)
                 else:
                     self.assertEqual(self.PIXE_HEIGHT, image.height)
                     self.assertEqual(self.PIXEL_WIDTH, image.width)

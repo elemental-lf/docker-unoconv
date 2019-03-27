@@ -184,7 +184,18 @@ def _scale_dimensions(*, data: BinaryIO, dimensions: _Dimensions) -> _Dimensions
     except Exception as exception:
         raise RuntimeError(f'Loading internal image data failed with a {type(exception).__name__} exception: {str(exception)}.') from None
 
-    if dimensions.scale_height:
+    scale_height = dimensions.scale_height
+    scale_width = dimensions.scale_width
+    if scale_height and scale_width:
+        ratio = image.height / image.width
+        # Image is wider than high
+        if ratio < 1.0:
+            scale_width = False
+        # Image is higher than wide
+        else:
+            scale_height = False
+
+    if scale_height:
         scaled_pixel_height = round(dimensions.pixel_width * image.height / image.width)
         scaled_pixel_width = dimensions.pixel_width
 
@@ -193,7 +204,7 @@ def _scale_dimensions(*, data: BinaryIO, dimensions: _Dimensions) -> _Dimensions
         else:
             scaled_logical_height = dimensions.logical_height
         scaled_logical_width = dimensions.logical_width
-    elif dimensions.scale_width:
+    elif scale_width:
         scaled_pixel_height = dimensions.pixel_height
         scaled_pixel_width = round(dimensions.pixel_height * image.width / image.height)
 
@@ -298,15 +309,12 @@ def _write_data(*, fs_url: str, file: str, data: BinaryIO) -> None:
 
 def _build_dimensions(*, pixel_height: Optional[int], pixel_width: Optional[int], logical_height: Optional[int],
                       logical_width: Optional[int], scale_height: bool, scale_width: bool) -> _Dimensions:
-    if scale_height and scale_width:
-        raise ValueError('Scaling in both dimensions is not supported.')
-
     if scale_height and pixel_width is None:
         raise ValueError('When scaling the height the pixel width must be specified.')
-    elif scale_width and pixel_height is None:
+    if scale_width and pixel_height is None:
         raise ValueError('When scaling the width the pixel height must be specified.')
-    elif not scale_height and not scale_width and (pixel_height is None and pixel_width is not None or
-                                                   pixel_height is not None and pixel_width is None):
+    if not scale_height and not scale_width and (pixel_height is None and pixel_width is not None or
+                                                 pixel_height is not None and pixel_width is None):
         raise ValueError('Both pixel height and width must be set or unset.')
 
     if pixel_height is not None and pixel_height < 0:
