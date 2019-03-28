@@ -345,19 +345,16 @@ def generate_preview_jpg(*,
                          extension: str = None,
                          pixel_height: int = None,
                          pixel_width: int = None,
-                         logical_height: int = None,
-                         logical_width: int = None,
-                         scale_height: bool = False,
-                         scale_width: bool = False,
+                         maintain_ratio: bool = False,
                          quality: int = None,
                          timeout: int = UNOCONV_DEFAULT_TIMEOUT):
     dimensions = _build_dimensions(
         pixel_height=pixel_height,
         pixel_width=pixel_width,
-        logical_height=logical_height,
-        logical_width=logical_width,
-        scale_height=scale_height,
-        scale_width=scale_width)
+        logical_height=None,
+        logical_width=None,
+        scale_height=maintain_ratio,
+        scale_width=maintain_ratio)
     if quality is not None and (quality < 1 or quality > 100):
         raise ValueError('JPEG quality must be in the range of 1 to 100 (inclusive).')
 
@@ -377,19 +374,16 @@ def generate_preview_png(*,
                          extension: str = None,
                          pixel_height: int = None,
                          pixel_width: int = None,
-                         logical_height: int = None,
-                         logical_width: int = None,
-                         scale_height: bool = False,
-                         scale_width: bool = False,
+                         maintain_ratio: bool = False,
                          compression: int = None,
                          timeout: int = UNOCONV_DEFAULT_TIMEOUT):
     dimensions = _build_dimensions(
         pixel_height=pixel_height,
         pixel_width=pixel_width,
-        logical_height=logical_height,
-        logical_width=logical_width,
-        scale_height=scale_height,
-        scale_width=scale_width)
+        logical_height=None,
+        logical_width=None,
+        scale_height=maintain_ratio,
+        scale_width=maintain_ratio)
     if compression is not None and (compression < 1 or compression > 9):
         raise ValueError('PNG compression must be in the range of 1 to 9 (inclusive).')
 

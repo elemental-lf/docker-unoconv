@@ -35,8 +35,6 @@ class TestFile(unittest.TestCase):
 
     PIXE_HEIGHT = 800
     PIXEL_WIDTH = 800
-    LOGICAL_HEIGHT = 20000
-    LOGICAL_WIDTH = 20000
 
     @classmethod
     def setUpClass(cls):
@@ -73,17 +71,13 @@ class TestFile(unittest.TestCase):
         return mime_type
 
     @parameterized.expand([
-        ('jpg no scaling', 'jpg', False, False),
-        ('png no scaling', 'png', False, False),
-        ('pdf', 'pdf', False, False),
-        ('jpg scale height', 'jpg', True, False),
-        ('png scale height', 'png', True, False),
-        ('jpg scale width', 'jpg', False, True),
-        ('png scale width', 'png', False, True),
-        ('jpg scale both', 'jpg', True, True),
-        ('png scale both', 'png', True, True),
+        ('jpg', 'jpg', False),
+        ('png', 'png', False),
+        ('pdf', 'pdf', False),
+        ('jpg maintain ratio', 'jpg', True),
+        ('png maintain ratio', 'png', True),
     ])
-    def test_generator_functions(self, _, output_format: str, scale_height: bool, scale_width: bool):
+    def test_generator_functions(self, _, output_format: str, maintain_ratio: bool):
         tasks = []
         input_files = []
 
@@ -114,13 +108,11 @@ class TestFile(unittest.TestCase):
 
             pixel_height = self.PIXE_HEIGHT
             pixel_width = self.PIXEL_WIDTH
-            logical_height = self.LOGICAL_HEIGHT
-            logical_width = self.LOGICAL_WIDTH
 
             output_file = '{input_file_basename}-{height}x{width}.{output_format}'.format(
                 input_file_basename=input_file_basename,
-                height=pixel_height if not scale_height else 'auto',
-                width=pixel_width if not scale_width else 'auto',
+                height=pixel_height if not maintain_ratio else 'auto',
+                width=pixel_width if not maintain_ratio else 'auto',
                 output_format=output_format)
             if output_format == 'pdf':
                 tasks.append(
@@ -147,11 +139,8 @@ class TestFile(unittest.TestCase):
                             'extension': extension,
                             'pixel_height': pixel_height,
                             'pixel_width': pixel_width,
-                            'logical_height': logical_height,
-                            'logical_width': logical_width,
                             'quality': 25,
-                            'scale_height': scale_height,
-                            'scale_width': scale_width,
+                            'maintain_ratio': maintain_ratio,
                             'timeout': 10,
                         }))
             elif output_format == 'png':
@@ -166,11 +155,8 @@ class TestFile(unittest.TestCase):
                             'extension': extension,
                             'pixel_height': pixel_height,
                             'pixel_width': pixel_width,
-                            'logical_height': logical_height,
-                            'logical_width': logical_width,
                             'compression': 3,
-                            'scale_height': scale_height,
-                            'scale_width': scale_width,
+                            'maintain_ratio': maintain_ratio,
                             'timeout': 10,
                         }))
             else:
@@ -189,8 +175,8 @@ class TestFile(unittest.TestCase):
 
             output_file = '{input_file_basename}-{height}x{width}.{output_format}'.format(
                 input_file_basename=input_file_basename,
-                height=pixel_height if not scale_height else 'auto',
-                width=pixel_width if not scale_width else 'auto',
+                height=pixel_height if not maintain_ratio else 'auto',
+                width=pixel_width if not maintain_ratio else 'auto',
                 output_format=output_format)
             with open_fs(self.OUTPUT_FS_URL_HOST) as source_fs, open_fs('osfs://output/') as destination_fs:
                 copy_file(source_fs, output_file, destination_fs, output_file)
@@ -204,11 +190,7 @@ class TestFile(unittest.TestCase):
 
                 image = Image.open(output_data)
 
-                if scale_height and not scale_width:
-                    self.assertEqual(self.PIXEL_WIDTH, image.width)
-                elif not scale_height and scale_width:
-                    self.assertEqual(self.PIXE_HEIGHT, image.height)
-                elif scale_height and scale_width:
+                if maintain_ratio:
                     self.assertTrue(image.height == self.PIXE_HEIGHT or image.width == self.PIXEL_WIDTH)
                 else:
                     self.assertEqual(self.PIXE_HEIGHT, image.height)

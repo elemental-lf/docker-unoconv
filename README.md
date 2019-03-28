@@ -24,8 +24,7 @@ are two possible modes:
     
     * `unoconv.tasks.generate_preview_jpg(*, input_fs_url: str, input_file: str, output_fs_url: str, output_file: str, 
        mime_type: str = None, extension: str = None, pixel_height: int = None, pixel_width: int = None,
-       logical_height: int = None, logical_width: int = None, scale_height: bool = False, scale_width: bool = False,
-       quality: int = None, timeout: int = UNOCONV_DEFAULT_TIMEOUT)`
+       maintain_ratio: bool = False, quality: int = None, timeout: int = UNOCONV_DEFAULT_TIMEOUT)`
         
         This tasks renders the first page (or slide) of a document as a JPEG image.
          
@@ -38,24 +37,9 @@ are two possible modes:
           either must be set or both be `None`). The behaviour is different when `scale_height` or `scale_width`
           are `True`, see below.
           
-        * `logical_height` and `logical_width` specify the dimensions on paper in hundredth of millimeters. Both are
-          optional and the respective height or width of the original document is retained. The behaviour is
-          different when `scale_height` or `scale_width` are `True`.
-          
-        * `scale_height` and `scale_width` activate automatic aspect ratio preserving scaling of the image. 
-        
-          * If scaling the height `pixel_width` must be specified.The height is then calculated automatically based 
-          on this and the passed value for it `pixel_height` is ignored.
-          
-          * If scaling the width `pixel_height` needs to be set. The width is then calculated automatically based 
-          on this and the passed value for it `pixel_width` is ignored.
-          
-          * If both `scale_width` and `scale_height` are set the image is scaled in such a way that it fits into 
-          the bonding box given by `pixel_height` and `pixel_width` while preserving the aspect ratio. 
-          
-          * If `logical_width` or `logical_height` are also set, they are scaled appropriately. 
-          
-          * If one of the scaling options is active the image is rendered two times: once to determine the dimensions
+        * `maintain_ratio` activates automatic aspect ratio preserving scaling of the image. The image is scaled in such 
+          a way that it fits into  the bonding box given by `pixel_height` and `pixel_width` while preserving the 
+          aspect ratio. If `maintain_ratio` is `True` the image is rendered two times: once to determine the dimensions
           of the original document and a second time with the calculated dimensions applied. 
           
         * `quality` determines the quality of the resulting JPEG image by tuning the compression algorithm. Valid
@@ -71,8 +55,7 @@ are two possible modes:
         
     * `unoconv.tasks.generate_preview_png(*, input_fs_url: str, input_file: str, output_fs_url: str, output_file: str,
        mime_type: str = None, extension: str = None, pixel_height: int = None, pixel_width: int = None,
-       logical_height: int = None, logical_width: int = None, scale_height: bool = False, scale_width: bool = False,
-       compression: int = None, timeout: int = UNOCONV_DEFAULT_TIMEOUT)`
+       maintain_ratio: bool = False, compression: int = None, timeout: int = UNOCONV_DEFAULT_TIMEOUT)`
         
         This task works just like `unoconv.tasks.generate_preview_jpg` but generates a PNG image instead. It
         uses the `compression` parameter instead of the `quality` parameter to tune the image compression algorithm:
