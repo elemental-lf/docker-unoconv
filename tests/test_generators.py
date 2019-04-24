@@ -22,7 +22,6 @@ with open('logging.yaml', 'r') as f:
 log = logging.getLogger("unoconv")
 app = Celery('test_generators')
 app.config_from_object('unoconv.celeryconfig')
-app.conf.update({'broker_url': 'amqp://guest:guest@localhost:5672'})
 
 supported_import_format = app.signature('unoconv.tasks.supported_import_format')
 generate_preview_jpg = app.signature('unoconv.tasks.generate_preview_jpg')
