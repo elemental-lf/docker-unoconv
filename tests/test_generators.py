@@ -2,9 +2,6 @@ import os
 import subprocess
 import unittest
 import warnings
-import logging
-import logging.config
-import yaml
 
 from io import BytesIO
 
@@ -15,11 +12,6 @@ import magic
 from fs.copy import copy_file
 from parameterized import parameterized
 
-with open('logging.yaml', 'r') as f:
-    config = yaml.safe_load(f.read())
-    logging.config.dictConfig(config)
-
-log = logging.getLogger("unoconv")
 app = Celery('test_generators')
 app.config_from_object('unoconv.celeryconfig')
 
@@ -46,30 +38,24 @@ class TestFile(unittest.TestCase):
 
     @classmethod
     def setUpClass(cls):
-        log.debug('setup tests class')
         # This disables ResourceWarnings from boto3 which are normal
         # See: https://github.com/boto/boto3/issues/454
         warnings.filterwarnings(
             "ignore", category=ResourceWarning, message=r'unclosed.*<(?:ssl.SSLSocket|socket\.socket).*>')
 
-        log.debug('prepare output folder')
         os.makedirs('output', exist_ok=True)
         with open_fs('osfs://output/') as fs:
             fs.glob("**").remove()
 
     def setUp(self):
-        log.debug('setup - clear s3 storage input')
         with open_fs(self.INPUT_FS_URL_HOST) as fs:
             fs.glob("**").remove()
-        log.debug('setup - clear s3 storage output')
         with open_fs(self.OUTPUT_FS_URL_HOST) as fs:
             fs.glob("**").remove()
 
     def tearDown(self):
-        log.debug('teardown - clear s3 storage input')
         with open_fs(self.INPUT_FS_URL_HOST) as fs:
             fs.glob("**").remove()
-        log.debug('teardown - clear s3 storage output')
         with open_fs(self.OUTPUT_FS_URL_HOST) as fs:
             fs.glob("**").remove()
 
@@ -92,7 +78,6 @@ class TestFile(unittest.TestCase):
         ('png maintain ratio', 'png', True),
     ])
     def test_generator_functions(self, _, output_format: str, maintain_ratio: bool):
-        log.debug(f'output format: {output_format}, maintain_ratio: {maintain_ratio}')
         tasks = []
         input_files = []
 
@@ -182,7 +167,6 @@ class TestFile(unittest.TestCase):
         successful_jobs = 0
         expected_jobs = len(input_files)
         for input_file_basename, result in zip(input_files, group_results.get(propagate=False)):
-            log.debug(f'input: {input_file_basename}, result: {result}')
             if isinstance(result, Exception):
                 print('{}: exception {}.'.format(input_file_basename, str(result)))
                 failed_jobs += 1
