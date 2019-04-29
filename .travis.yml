@@ -4,10 +4,6 @@ language: python
 services:
   - docker
 
-branches:
-  only:
-    - master
-
 python:
   - 3.6
 
