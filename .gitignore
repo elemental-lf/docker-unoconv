@@ -2,3 +2,4 @@
 *.iml
 __pycache__
 tests/output
+.idea/

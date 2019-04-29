@@ -10,7 +10,6 @@ from parameterized import parameterized
 
 app = Celery('test_generators')
 app.config_from_object('unoconv.celeryconfig')
-app.conf.update({'broker_url': 'amqp://guest:guest@localhost:5672'})
 
 generate_preview_jpg = app.signature('unoconv.tasks.generate_preview_jpg')
 generate_preview_png = app.signature('unoconv.tasks.generate_preview_png')

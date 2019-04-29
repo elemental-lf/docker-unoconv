@@ -2,6 +2,7 @@ import os
 import subprocess
 import unittest
 import warnings
+
 from io import BytesIO
 
 from PIL import Image
@@ -13,7 +14,6 @@ from parameterized import parameterized
 
 app = Celery('test_generators')
 app.config_from_object('unoconv.celeryconfig')
-app.conf.update({'broker_url': 'amqp://guest:guest@localhost:5672'})
 
 supported_import_format = app.signature('unoconv.tasks.supported_import_format')
 generate_preview_jpg = app.signature('unoconv.tasks.generate_preview_jpg')
@@ -125,7 +125,7 @@ class TestFile(unittest.TestCase):
                             'mime_type': data_mime_type,
                             'extension': extension,
                             'paper_format': 'LETTER',
-                            'timeout': 10,
+                            'timeout': 100,
                         }))
             elif output_format == 'jpg':
                 tasks.append(
@@ -163,7 +163,6 @@ class TestFile(unittest.TestCase):
                 raise NotImplementedError
 
         group_results = group(tasks).apply_async()
-
         failed_jobs = 0
         successful_jobs = 0
         expected_jobs = len(input_files)

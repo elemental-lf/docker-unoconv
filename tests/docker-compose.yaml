@@ -1,35 +1,18 @@
 version: '2'
 services:
-  worker_1:
-    hostname: worker_1
+  worker:
     image: elementalnet/unoconv:latest
     links:
-      - rabbitmq
+      - redis
       - minio
     depends_on:
-      - rabbitmq
+      - redis
       - minio
     command: celery-worker
-  worker_2:
-    hostname: worker_2
-    image: elementalnet/unoconv:latest
-    links:
-      - rabbitmq
-      - minio
-    depends_on:
-      - rabbitmq
-      - minio
-    command: celery-worker
-  worker_3:
-    hostname: worker_3
-    image: elementalnet/unoconv:latest
-    links:
-      - rabbitmq
-      - minio
-    depends_on:
-      - rabbitmq
-      - minio
-    command: celery-worker
+    environment:
+      CELERY_BROKER_URL: redis://:redis@redis:6379/0
+      CELERY_RESULT_BACKEND: redis://:redis@redis:6379/1
+
   #listener_1:
   #  image: elementalnet/unoconv:latest
   #  depends_on:
@@ -54,11 +37,19 @@ services:
   #    - worker_3
   #  command: unoconv-listener
   #  network_mode: "service:worker_3"
-  rabbitmq:
-    hostname: rabbitmq
-    image: rabbitmq:latest
+  redis:
+    image: bitnami/redis
     ports:
-     - '5672:5672'
+      - 6379:6379
+    environment:
+      REDIS_PASSWORD: redis
+
+#  rabbitmq:
+#    hostname: rabbitmq
+#    image: rabbitmq:latest
+#    ports:
+#     - '5672:5672'
+
   minio:
     image: minio/minio:latest
     environment:
