@@ -21,6 +21,8 @@ generate_preview_png = app.signature('unoconv.tasks.generate_preview_png')
 generate_pdf = app.signature('unoconv.tasks.generate_pdf')
 
 example_files = [os.path.join(dp, f) for dp, dn, filenames in os.walk('example-files') for f in filenames]
+if not example_files:
+    raise RuntimeError('Example files not found.')
 
 
 class TestFile(unittest.TestCase):
