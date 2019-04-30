@@ -49,16 +49,11 @@ class TestFile(unittest.TestCase):
         with open_fs('osfs://output/') as fs:
             fs.glob("**").remove()
 
-    def setUp(self):
-        with open_fs(self.INPUT_FS_URL_HOST) as fs:
+    @classmethod
+    def tearDownClass(cls):
+        with open_fs(cls.INPUT_FS_URL_HOST) as fs:
             fs.glob("**").remove()
-        with open_fs(self.OUTPUT_FS_URL_HOST) as fs:
-            fs.glob("**").remove()
-
-    def tearDown(self):
-        with open_fs(self.INPUT_FS_URL_HOST) as fs:
-            fs.glob("**").remove()
-        with open_fs(self.OUTPUT_FS_URL_HOST) as fs:
+        with open_fs(cls.OUTPUT_FS_URL_HOST) as fs:
             fs.glob("**").remove()
 
     # Using file (i.e. libmagic) didn't work out for some MIME types
@@ -73,15 +68,15 @@ class TestFile(unittest.TestCase):
         return mime_type
 
     @parameterized.expand([
-        ('jpg', 'jpg', False),
-        ('png', 'png', False),
-        ('pdf', 'pdf', False),
-        ('jpg maintain ratio', 'jpg', True),
-        ('png maintain ratio', 'png', True),
+        ('jpg', 'jpg_', 'jpg', False),
+        ('png', 'png_', 'png', False),
+        ('pdf', 'pdf_', 'pdf', False),
+        ('jpg maintain ratio', 'jpgmr_', 'jpg', True),
+        ('png maintain ratio', 'pngmr_', 'png', True),
     ])
-    def test_generator_functions(self, _, output_format: str, maintain_ratio: bool):
+    def test_generator_functions(self, _, bucket_prefix: str, output_format: str, maintain_ratio: bool):
         tasks = []
-        input_files = []
+        output_files = []
 
         if output_format == 'jpg':
             generator = generate_preview_jpg
@@ -102,26 +97,24 @@ class TestFile(unittest.TestCase):
             if not supported_import_format.delay(mime_type=data_mime_type, extension=extension).get():
                 print('{}: Unsupported MIME type {}.'.format(input_file, data_mime_type))
                 continue
-            input_file_basename = os.path.basename(input_file)
-            input_files.append(input_file_basename)
+            destination_input_file = '{bucket_prefix}{input_file_basename}'.format(
+                bucket_prefix=bucket_prefix, input_file_basename=os.path.basename(input_file))
 
             with open_fs('osfs://') as source_fs, open_fs(self.INPUT_FS_URL_HOST) as destination_fs:
-                copy_file(source_fs, input_file, destination_fs, input_file_basename)
+                copy_file(source_fs, input_file, destination_fs, destination_input_file)
 
             pixel_height = self.PIXE_HEIGHT
             pixel_width = self.PIXEL_WIDTH
 
-            output_file = '{input_file_basename}-{height}x{width}.{output_format}'.format(
-                input_file_basename=input_file_basename,
-                height=pixel_height if not maintain_ratio else 'auto',
-                width=pixel_width if not maintain_ratio else 'auto',
-                output_format=output_format)
+            output_file = '{input_file}.{output_format}'.format(
+                input_file=destination_input_file, output_format=output_format)
+            output_files.append(output_file)
             if output_format == 'pdf':
                 tasks.append(
                     generator.clone(
                         kwargs={
                             'input_fs_url': self.INPUT_FS_URL,
-                            'input_file': input_file_basename,
+                            'input_file': destination_input_file,
                             'output_fs_url': self.OUTPUT_FS_URL,
                             'output_file': output_file,
                             'mime_type': data_mime_type,
@@ -134,7 +127,7 @@ class TestFile(unittest.TestCase):
                     generator.clone(
                         kwargs={
                             'input_fs_url': self.INPUT_FS_URL,
-                            'input_file': input_file_basename,
+                            'input_file': destination_input_file,
                             'output_fs_url': self.OUTPUT_FS_URL,
                             'output_file': output_file,
                             'mime_type': data_mime_type,
@@ -143,14 +136,14 @@ class TestFile(unittest.TestCase):
                             'pixel_width': pixel_width,
                             'quality': 25,
                             'maintain_ratio': maintain_ratio,
-                            'timeout': 10,
+                            'timeout': 20,
                         }))
             elif output_format == 'png':
                 tasks.append(
                     generator.clone(
                         kwargs={
                             'input_fs_url': self.INPUT_FS_URL,
-                            'input_file': input_file_basename,
+                            'input_file': destination_input_file,
                             'output_fs_url': self.OUTPUT_FS_URL,
                             'output_file': output_file,
                             'mime_type': data_mime_type,
@@ -159,7 +152,7 @@ class TestFile(unittest.TestCase):
                             'pixel_width': pixel_width,
                             'compression': 3,
                             'maintain_ratio': maintain_ratio,
-                            'timeout': 10,
+                            'timeout': 20,
                         }))
             else:
                 raise NotImplementedError
@@ -167,18 +160,13 @@ class TestFile(unittest.TestCase):
         group_results = group(tasks).apply_async()
         failed_jobs = 0
         successful_jobs = 0
-        expected_jobs = len(input_files)
-        for input_file_basename, result in zip(input_files, group_results.get(propagate=False)):
+        expected_jobs = len(output_files)
+        for output_file, result in zip(output_files, group_results.get(propagate=False)):
             if isinstance(result, Exception):
-                print('{}: exception {}.'.format(input_file_basename, str(result)))
+                print('{}: exception {}.'.format(output_file, str(result)))
                 failed_jobs += 1
                 continue
 
-            output_file = '{input_file_basename}-{height}x{width}.{output_format}'.format(
-                input_file_basename=input_file_basename,
-                height=pixel_height if not maintain_ratio else 'auto',
-                width=pixel_width if not maintain_ratio else 'auto',
-                output_format=output_format)
             with open_fs(self.OUTPUT_FS_URL_HOST) as source_fs, open_fs('osfs://output/') as destination_fs:
                 copy_file(source_fs, output_file, destination_fs, output_file)
 
