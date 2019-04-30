@@ -1,7 +1,7 @@
-version: '2'
+version: '2.1'
 services:
   worker:
-    image: elementalnet/unoconv:latest
+    image: elementalnet/unoconv:${UNOCONV_IMAGE_TAG}
     links:
       - redis
       - minio
@@ -13,30 +13,15 @@ services:
       CELERY_BROKER_URL: redis://:redis@redis:6379/0
       CELERY_RESULT_BACKEND: redis://:redis@redis:6379/1
 
-  #listener_1:
-  #  image: elementalnet/unoconv:latest
+  #listener:
+  #  image: elementalnet/unoconv:${UNOCONV_IMAGE_TAG}
   #  depends_on:
   #    - rabbitmq
   #    - minio
   #    - worker_1
   #  command: unoconv-listener
   #  network_mode: "service:worker_1"
-  #listener_2:
-  #  image: elementalnet/unoconv:latest
-  #  depends_on:
-  #    - rabbitmq
-  #    - minio
-  #    - worker_2
-  #  command: unoconv-listener
-  #  network_mode: "service:worker_2"
-  #listener_3:
-  #  image: elementalnet/unoconv:latest
-  #  depends_on:
-  #    - rabbitmq
-  #    - minio
-  #    - worker_3
-  #  command: unoconv-listener
-  #  network_mode: "service:worker_3"
+
   redis:
     image: bitnami/redis
     ports:
@@ -44,11 +29,11 @@ services:
     environment:
       REDIS_PASSWORD: redis
 
-#  rabbitmq:
-#    hostname: rabbitmq
-#    image: rabbitmq:latest
-#    ports:
-#     - '5672:5672'
+  #rabbitmq:
+  #  hostname: rabbitmq
+  #  image: rabbitmq:latest
+  #  ports:
+  #   - '5672:5672'
 
   minio:
     image: minio/minio:latest

@@ -102,3 +102,9 @@ if [[ $SOURCE_BRANCH == master ]]; then
     fi
 fi
 
+if [[ $EXTRA_TAG ]]; then
+    docker tag $IMAGE_NAME "$DOCKER_REPO:$EXTRA_TAG"
+    if [[ ! $SKIP_DOCKER_PUSH && ($BUILD_ENV == docker || $BUILD_ENV == travis) ]]; then
+        docker push "$DOCKER_REPO:$EXTRA_TAG"
+    fi
+fi
