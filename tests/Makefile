@@ -3,6 +3,6 @@ up:
 	./create-buckets.sh
 
 down:
-	docker-compose down
+	docker-compose down --remove-orphans
 
 .PHONY: up down
