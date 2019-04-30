@@ -1,12 +1,10 @@
 import os
-import subprocess
 import unittest
 
 from fs import open_fs
-from celery import Celery, group
-import magic
-from fs.copy import copy_file
+from celery import Celery
 from parameterized import parameterized
+import warnings
 
 app = Celery('test_generators')
 app.config_from_object('unoconv.celeryconfig')
@@ -27,6 +25,11 @@ class TestFile(unittest.TestCase):
     INPUT_FS_URL = f's3://minio:minio123@{BUCKET_NAME_INPUT}?endpoint_url=http://minio:9000'
     OUTPUT_FS_URL_HOST = f's3://minio:minio123@{BUCKET_NAME_OUTPUT}?endpoint_url=http://localhost:9000'
     OUTPUT_FS_URL = f's3://minio:minio123@{BUCKET_NAME_OUTPUT}?endpoint_url=http://minio:9000'
+
+    @classmethod
+    def setUpClass(cls):
+        warnings.filterwarnings(
+            "ignore", category=ResourceWarning, message=r'unclosed.*<(?:ssl.SSLSocket|socket\.socket).*>')
 
     def setUp(self):
         with open_fs(self.INPUT_FS_URL_HOST) as fs:
